@@ -396,6 +396,19 @@ body.pkopen{overflow:hidden}
 .rv .ar{text-align:right;font-size:1.1rem;line-height:1.7}.rv.good .qn{background:color-mix(in srgb,var(--accent) 20%,transparent)}.rv.badr .qn{background:color-mix(in srgb,var(--danger) 18%,transparent);color:var(--danger)}
 .tgback .back{display:none}
 .tg .top{position:static}
+.tg .tgonly-hide{display:none}
+.hdr-r{display:flex;gap:8px;align-items:center}
+.icb{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;font-size:1.1rem;padding:0;text-decoration:none;color:var(--ink)}
+.icb:hover{border-color:var(--accent)}
+.tgbtn{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:12px;background:#229ED9;color:#fff;font-weight:700;font-size:.85rem;text-decoration:none}
+.acct{margin-top:14px;padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--panel);display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:var(--sh)}
+.acct .av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--accent);font-weight:800;flex:none}
+.acct .tx2{flex:1;min-width:160px}.acct .tx2 small{display:block;color:var(--muted)}
+.acct button{margin:0}
+.foot{text-align:center;color:var(--muted);font-size:.85rem;margin:22px 0 0}
+.foot a{color:var(--accent);font-weight:700;text-decoration:none}
+.lgwait{display:flex;gap:10px;align-items:center}.lgwait .sp{width:18px;height:18px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 @media (max-width:520px){
   .levels{grid-template-columns:1fr}
   .row{grid-template-columns:28px 1fr auto;padding:12px}
@@ -504,6 +517,8 @@ body.pkopen{overflow:hidden}
   <p class="note">Reytingda ko'rinishingiz uchun ism va familiyangizni yozing. Faqat ism va ballingiz ko'rinadi, javoblaringiz hech kimga ko'rinmaydi.</p>
   <input id="namein" class="inp" type="text" autocomplete="name" maxlength="50" placeholder="Masalan: Aziza Karimova">
   <div class="dact"><button class="ghost" id="nameskip">Keyinroq</button><button class="primary" id="namesave">Saqlash</button></div>
+  <p class="note tgonly-hide" style="margin:12px 0 6px;text-align:center">yoki</p>
+  <button class="primary tgonly-hide" data-act="tglogin" style="width:100%;background:#229ED9;border-color:#229ED9">✈️ Telegram orqali kirish</button>
 </dialog>
 <dialog id="aidlg">
   <h2>AI baholash sozlamalari</h2>
@@ -2319,6 +2334,10 @@ document.addEventListener("click",e=>{
     case "sprecover": case "spdismiss": { const id=+t.dataset.id; S.spPending=null; HIST.all().then(a=>{ const x=a.find(z=>z.id===id); if(x){ x.partial=false; x.recovered=true; return HIST.put(x); } }).catch(()=>{}).then(()=>{ if(t.dataset.act==="sprecover") openHist(id); else { const b=t.closest(".warn"); if(b) b.remove(); } }); break; }
     case "histdel": HIST.del(+t.dataset.id).then(()=>S.view==="myres"?renderMyRes():renderAdmin("results")).catch(()=>{}); break;
     case "micon": micToggle(); break;
+    case "theme": { const th=document.documentElement.dataset.theme==="light"?"dark":"light"; store.set("qalam:theme",th); applyTheme(); if(TG.on) tgTheme(); t.textContent=th==="light"?"🌙":"☀️"; break; }
+    case "tglogin": { const d=document.getElementById("namedlg"); if(d&&d.open){ try{ d.close(); }catch(x){ d.removeAttribute("open"); } } tgLogin(); break; }
+    case "tglogincancel": clearTimeout(LG.timer); LG.state=""; lgRender(); break;
+    case "tglogout": askConfirm("Telegram akkauntdan chiqilsinmi? Natijalar bu qurilmada qoladi.").then(ok=>{ if(!ok) return; const m=store.get("qalam:me",{})||{}; store.set("qalam:me",{uid:"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,7),name:m.name||""}); BK.ready=false; renderHome(); }); break;
     case "mictest": micTest(); break;
     case "tgmenu": tgSetup("menu"); break;
     case "tgpost": tgSetup("post"); break;
@@ -2716,6 +2735,7 @@ function header(){
   return `<header class="top">
     <div class="brand" data-act="brand" role="button" tabindex="0" style="cursor:pointer"><span class="ar" lang="ar">قلم</span>
       <h1>Qalam<small>Arab tili CEFR tayyorlov</small></h1></div>
+    <div class="hdr-r">${TG.on?"":`<a class="tgbtn" href="${BOT_URL}" target="_blank" rel="noopener" title="Telegram botga o'tish">✈️ <span>Bot</span></a>`}<button class="icb" data-act="theme" aria-label="Mavzuni almashtirish" title="Mavzu">${document.documentElement.dataset.theme==="light"?"🌙":"☀️"}</button></div>
 </header>`;
 }
 let brandTaps=[];
@@ -2738,7 +2758,9 @@ function renderHome(){
     <p class="note hubnote">ⓘ Mashq uchun mock imtihon — natija rasmiy emas.</p>
     ${tab==="parts"?`<div class="skrows">${SK_HOME.map(skillRowHTML).join("")}</div>`
       :`<button class="skr sk-full" data-act="fullmock"><span class="ic">${SK_ICO.full}</span><span class="nm">To'liq mock<small>Tinglash → O'qish → Yozish → Gapirish</small></span><span class="bd">${last?last.score+"/75":"Boshlash"}</span><span class="wm" aria-hidden="true">${SK_ICO.full}</span></button>`}
-    <div class="hubbtns"><button class="histbtn" data-act="rating"><span>${SK_ICO.trophy}</span> Reyting</button><button class="histbtn" data-act="myres"><span>${SK_ICO.chart}</span> Natijalarim</button></div><button class="histbtn vbhome" data-act="vocab"><span>📚</span> Lug'atim${(()=>{ const st=vbStats(); return st.due?` <small class="vbbadge">${st.due} ta takrorlash</small>`:st.n?` <small class="vbbadge soft">${st.n} ta so'z</small>`:""; })()}</button>`;
+    <div class="hubbtns"><button class="histbtn" data-act="rating"><span>${SK_ICO.trophy}</span> Reyting</button><button class="histbtn" data-act="myres"><span>${SK_ICO.chart}</span> Natijalarim</button></div><button class="histbtn vbhome" data-act="vocab"><span>📚</span> Lug'atim${(()=>{ const st=vbStats(); return st.due?` <small class="vbbadge">${st.due} ta takrorlash</small>`:st.n?` <small class="vbbadge soft">${st.n} ta so'z</small>`:""; })()}</button>
+    <div id="acctbox">${acctHTML()}</div>
+    ${TG.on?"":`<p class="foot">Telegram bot: <a href="${BOT_URL}" target="_blank" rel="noopener">@${BOT_USER}</a> · Mashq uchun mock, rasmiy natija emas</p>`}`;
 }
 /* --- reyting --- */
 const LB={url:"https://script.google.com/macros/s/AKfycbyHE7ftpWNhGzCzHVK0x9noOAbSS_Ml2sv16Ugkau1_yTIEWkr09iH5ufJQsfT_8LG6qg/exec",sheet:"https://docs.google.com/spreadsheets/d/17hYKd4tNe47wrsmGj5HgKAP6PDWPpfeskj5hB_rE94s/edit",rows:null,ts:0,loading:false,err:""};
@@ -3605,7 +3627,7 @@ At most 12 mistakes and 4 advice items.`;
 /* ============ ZAXIRA: natijalar va lug'at serverda (telefon almashsa ham tiklanadi) ============ */
 const BK_KEYS=["qalam:tres","qalam:vocab","qalam:seen","qalam:sptop","gapir:done","qalam:remind"];
 const BK={ready:false,t:0,busy:false,dirty:false,tries:0};
-function bkInit(){ try{ return TG.on&&TG.wa&&TG.wa.initData||""; }catch(e){ return ""; } }
+function bkInit(){ try{ if(TG.on&&TG.wa&&TG.wa.initData) return TG.wa.initData; const m=store.get("qalam:me",null); return m&&m.tok||""; }catch(e){ return ""; } }
 function bkSoon(){ if(!BK.ready){ BK.dirty=true; return; } clearTimeout(BK.t); BK.t=setTimeout(bkPush,4000); }
 async function bkPush(){
   const init=bkInit(); if(!init||!LB.url||!BK.ready) return;
@@ -3640,12 +3662,42 @@ async function bkPull(){
   }catch(e){ if(++BK.tries<4) setTimeout(bkPull,30000*BK.tries); }
 }
 
+/* ============ MAVZU: premium dark (odatiy), yorug' — tanlov saqlanadi ============ */
+function applyTheme(){ const t=store.get("qalam:theme","dark")==="light"?"light":"dark"; document.documentElement.dataset.theme=t;
+  try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=t==="dark"?"#0C1611":"#F2F7F3"; }catch(e){} }
+applyTheme();
+/* ============ SAYT ↔ BOT: Telegram orqali kirish (bot tasdiqlaydi, kalitlar faqat serverda) ============ */
+const BOT_USER="qalam_arabic_bot", BOT_URL="https://t.me/"+BOT_USER;
+const LG={code:"",t0:0,timer:0,state:""};
+function tgLogged(){ const m=me(); return !!(m&&/^tg\d+$/.test(m.uid||"")&&(TG.on||m.tok)); }
+function acctHTML(){
+  if(TG.on) return "";
+  const m=me();
+  if(tgLogged()) return `<div class="acct"><span class="av">${esc((Array.from(m.name||"?")[0]||"?").toUpperCase())}</span><span class="tx2"><b>${esc(m.name||"Foydalanuvchi")}</b><small>Telegram orqali kirgansiz — natijalar va lug'at bot bilan bir xil saqlanadi</small></span><button class="ghost" data-act="tglogout">Chiqish</button></div>`;
+  if(LG.state==="wait") return `<div class="acct"><div class="lgwait"><span class="sp"></span><span><b>Telegram'da tasdiqlang</b><small class="note" style="display:block">Bot ochildi — «✅ Kirishni tasdiqlash» tugmasini bosing. Ochilmagan bo'lsa: <a href="${BOT_URL}?start=login_${LG.code}" target="_blank" rel="noopener">botni ochish</a></small></span></div><button class="ghost" data-act="tglogincancel">Bekor qilish</button></div>`;
+  return `<div class="acct"><span class="av">✈️</span><span class="tx2"><b>Telegram orqali kirish</b><small>Natijalaringiz, lug'atingiz va reytingdagi o'rningiz bot bilan bir xil bo'ladi${LG.state==="err"?" · <span style='color:var(--danger)'>"+esc(LG.err||"Kirish amalga oshmadi")+"</span>":""}</small></span><button class="primary" data-act="tglogin">Kirish</button></div>`;
+}
+function lgCode(){ const a=new Uint8Array(12); (window.crypto||{}).getRandomValues?crypto.getRandomValues(a):a.forEach((x,i)=>a[i]=Math.random()*256|0); return Array.from(a,b=>("0"+b.toString(16)).slice(-2)).join(""); }
+function lgRender(){ const b=document.getElementById("acctbox"); if(b) b.innerHTML=acctHTML(); }
+function tgLogin(){
+  if(!LB.url){ toast("Server sozlanmagan"); return; }
+  clearTimeout(LG.timer); LG.code=lgCode(); LG.t0=Date.now(); LG.state="wait"; lgRender();
+  try{ window.open(BOT_URL+"?start=login_"+LG.code,"_blank","noopener"); }catch(e){}
+  const poll=async()=>{
+    if(LG.state!=="wait") return;
+    if(Date.now()-LG.t0>5*60000){ LG.state="err"; LG.err="Vaqt tugadi — qayta urinib ko'ring"; lgRender(); return; }
+    try{ const j=await tPost({action:"lpoll",code:LG.code},15000);
+      if(j&&j.ok&&j.token){ LG.state=""; store.set("qalam:me",{uid:j.uid,name:j.name||"Foydalanuvchi",username:j.username||"",tok:j.token}); BK.ready=false; BK.tries=0; toast("Xush kelibsiz, "+(j.name||"")+"!"); renderHome(); bkPull(); lbFlush(); return; }
+      if(j&&j.ok===false&&j.err==="code"){ LG.state="err"; LG.err="Kod eskirgan — qayta urinib ko'ring"; lgRender(); return; } }catch(e){}
+    LG.timer=setTimeout(poll,2500); };
+  LG.timer=setTimeout(poll,2500);
+}
 /* ============ TELEGRAM MINI APP ============ */
 const TG={wa:null,on:false};
 function tgVer(v){ try{ return !!(TG.wa&&TG.wa.isVersionAtLeast&&TG.wa.isVersionAtLeast(v)); }catch(e){ return false; } }
 function tgTheme(){
   const wa=TG.wa; if(!wa) return;
-  document.documentElement.dataset.theme = wa.colorScheme==="dark"?"dark":"light";
+  applyTheme();
   const bg=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()||"#F2F7F3";
   try{ if(tgVer("6.1")){ wa.setHeaderColor(bg); wa.setBackgroundColor(bg); } }catch(e){}
   try{ if(tgVer("7.10")&&wa.setBottomBarColor) wa.setBottomBarColor(bg); }catch(e){}
@@ -3694,6 +3746,7 @@ renderHome();
 loadTests().then(()=>{ if(S.view==="") renderHome(); });
 loadConfig();
 if(window.Telegram&&window.Telegram.WebApp) tgReady();
+setTimeout(()=>{ if(!TG.on&&bkInit()) bkPull(); },1500);
 </script>
 </body>
 </html>

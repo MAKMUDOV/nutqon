@@ -23,6 +23,9 @@ async function launch(opts = {}) {
     if (d.action === 'ping') { calls.ping++; body = { ok: true, t: Date.now() }; }
     else if (d.action === 'stt') { calls.stt++; if (d.detail) calls.sttDetail++; body = opts.sttBody ? opts.sttBody(d, calls) : { ok: true, text: STT_TEXT, model: 'mock', q: { quality: 'good', note: '', intel: 8, pron: 7, notes: ["«أحبّ» so'zida ح tovushi ه kabi aytildi"], good: ["Unlilar aniq"], unclear: ["كثيرا"] } }; }
     else if (d.action === 'ai') { calls.ai++; body = { ok: true, text: JSON.stringify(AI_JSON), model: 'mock' }; }
+    else if (d.action === 'lpoll') { calls.lpoll = (calls.lpoll || 0) + 1; body = calls.lpoll < 2 ? { ok: true, wait: true } : { ok: true, uid: 'tg6080598376', name: 'Ilyosbek', username: 'x', token: 'qs1.tg6080598376.9999999999.' + 'a'.repeat(64) }; }
+    else if (d.action === 'bkget') { calls.bkget = (calls.bkget || 0) + 1; calls.bkInit = d.init; body = { ok: true, data: JSON.stringify({ 'qalam:tres': [{ id: 1, ts: Date.now() - 1e6, skill: 'reading', title: 'Botdagi natija', score: 50 }] }) }; }
+    else if (d.action === 'bkset') { calls.bkset = (calls.bkset || 0) + 1; body = { ok: true }; }
     else if (d.action) body = { ok: true };
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
