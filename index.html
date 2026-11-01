@@ -1543,11 +1543,13 @@ async function sttFill(e,rr){
   const m=me()||{}; const todo=e.res.filter(sttTodo);
   if(navigator.onLine===false){ e.sttErr="Internet uzilgan. Yozuvlaringiz saqlangan — internet qaytganda matn avtomatik olinadi (yoki «Ovozdan matnni olish» ni bosing)."; e.sttWaitNet=true; rr&&rr(); return; }
   e.sttState="loading"; e.sttErr=""; e.sttWaitNet=false; e.sttN=0; e.sttT=todo.length; rr&&rr();
-  for(const r of todo){
+  // 3 tadan parallel: 10 javobli mock ~1 daqiqada matnga aylanadi
+  let stop=false, qi=0;
+  const one=async r=>{
     r.sttTried=true;
     try{
       let w=null; try{ w=await toWav16(r.blob); }catch(x){ w=null; }
-      if(w&&w.silent){ r.warn="Yozuvda ovoz eshitilmadi — matn olinmadi. Qayta yozing yoki mikrofonni tekshiring."; r.stt={quality:"silent",pron:null,intel:null,notes:[],good:[],unclear:[],note:"Ovoz yo'q"}; r.flu={dur:0,pauses:0,pauseSecs:0}; e.sttN++; continue; }
+      if(w&&w.silent){ r.warn="Yozuvda ovoz eshitilmadi — matn olinmadi. Qayta yozing yoki mikrofonni tekshiring."; r.stt={quality:"silent",pron:null,intel:null,notes:[],good:[],unclear:[],note:"Ovoz yo'q"}; r.flu={dur:0,pauses:0,pauseSecs:0}; e.sttN++; if(rr) rr(); return; }
       const blob=(w&&w.blob)||r.blob, mime=(w&&w.blob)?"audio/wav":((r.blob.type||"").split(";")[0]||"audio/webm");
       const dur=(w&&w.dur)||r.secs||0;
       if(w) r.flu={dur:Math.round(w.dur*10)/10,pauses:w.pauses||0,pauseSecs:w.pauseSecs||0};
@@ -1556,10 +1558,12 @@ async function sttFill(e,rr){
         r.stt=j.q||null; r.sttText=c.text;
         if(c.text&&(!r.edited||!String(r.text||"").trim())){ r.text=c.text; if(c.cut) r.warn="Avtomatik matnda ortiqcha takror bor edi — olib tashlandi. Yozuvni tinglab, matnni tekshiring."; }
         if(r.stt&&(r.stt.quality==="poor"||r.stt.quality==="silent")) r.warn="Audio sifati past"+(r.stt.note?" ("+r.stt.note+")":"")+" — matn va talaffuz bahosi ishonchsiz. Tinch joyda, mikrofonga yaqinroq qayta yozish tavsiya etiladi."; }
-      else{ const er=j&&j.err; e.sttErr=er==="daylimit"?"Bugungi ovozdan matn olish limiti tugadi. Matnni o'zingiz yozing yoki ertaga urinib ko'ring.":er==="busy"?"Server band — birozdan keyin «Ovozdan matnni olish» ni qayta bosing.":"Ovozdan matn olinmadi. Qayta urinib ko'ring yoki matnni o'zingiz yozing."; if(er==="daylimit") break; r.sttTried=false; }
+      else{ const er=j&&j.err; e.sttErr=er==="daylimit"?"Bugungi ovozdan matn olish limiti tugadi. Matnni o'zingiz yozing yoki ertaga urinib ko'ring.":er==="busy"?"Server band — birozdan keyin «Ovozdan matnni olish» ni qayta bosing.":"Ovozdan matn olinmadi. Qayta urinib ko'ring yoki matnni o'zingiz yozing."; if(er==="daylimit") stop=true; r.sttTried=false; }
     }catch(x){ e.sttErr=navigator.onLine===false?"Internet uzilgan. Yozuvlaringiz saqlangan — internet qaytganda matn avtomatik olinadi.":"Server javob bermadi — «Ovozdan matnni olish» ni qayta bosing."; e.sttWaitNet=navigator.onLine===false; r.sttTried=false; }
     e.sttN++; if(e.sttState==="loading"&&rr) rr();
-  }
+  };
+  const worker=async()=>{ while(!stop&&qi<todo.length){ const r=todo[qi++]; await one(r); } };
+  await Promise.all([worker(),worker(),worker()]);
   e.sttState=""; e.qc=e.res.some(r=>arWords(r.text).length);
   if(e===S.ex) histSaveSoon(); rr&&rr();
 }
