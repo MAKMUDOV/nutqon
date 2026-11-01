@@ -2947,7 +2947,7 @@ async function vbTranslate(){
 document.addEventListener("input",e=>{ if(e.target&&e.target.id==="vbsearch"){ S.vbq=e.target.value; const pos=e.target.selectionStart; renderVocab(); const n=document.getElementById("vbsearch"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } } });
 
 /* ============ NATIJA KARTASI (rasm + ulashish) ============ */
-const BOT_LINK="https://t.me/qalam_arabic_bot";
+const BOT_LINK="https://t.me/nutqon_bot";
 const CARD_COL={listening:["#3fd35c","#1f9a32"],reading:["#1d7a3a","#0b3a1b"],writing:["#9d4fb5","#5a2470"],speaking:["#0e7490","#0b3f52"],full:["#ff3b57","#9e0018"]};
 function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
 async function shareCardDraw(o){
@@ -2979,7 +2979,7 @@ async function shareCardDraw(o){
   if(o.scores){ const ks=SK_ORDER; c.font="700 30px Manrope,sans-serif";
     ks.forEach((k,i)=>{ const x=80+i*(W-160)/4+(W-160)/8; const v=o.scores[k]; c.globalAlpha=.85; c.fillText(SKILLS[k].uz,x,1110); c.globalAlpha=1; c.font="800 44px Manrope,sans-serif"; c.fillText(v==null?"—":String(v),x,1162); c.font="700 30px Manrope,sans-serif"; }); }
   else if(o.name){ c.globalAlpha=.9; c.font="700 40px Manrope,sans-serif"; c.fillText(o.name.length>28?o.name.slice(0,27)+"…":o.name,cx,1130); c.globalAlpha=1; }
-  c.globalAlpha=.85; c.font="700 32px Manrope,sans-serif"; c.fillText("t.me/qalam_arabic_bot",cx,H-70);
+  c.globalAlpha=.85; c.font="700 32px Manrope,sans-serif"; c.fillText("t.me/nutqon_bot",cx,H-70);
   c.font="600 26px Manrope,sans-serif"; c.globalAlpha=.7; c.fillText(new Date(o.ts||Date.now()).toLocaleDateString(),cx,H-30); c.globalAlpha=1;
   return cv;
 }
@@ -3819,7 +3819,7 @@ function renderProfile(){
   window.scrollTo(0,0); navSync();
 }
 /* ============ SAYT ↔ BOT: Telegram orqali kirish (bot tasdiqlaydi, kalitlar faqat serverda) ============ */
-const BOT_USER="qalam_arabic_bot", BOT_URL="https://t.me/"+BOT_USER;
+const BOT_USER="nutqon_bot", BOT_URL="https://t.me/"+BOT_USER;
 const LG={code:"",t0:0,timer:0,state:""};
 function tgLogged(){ const m=me(); return !!(m&&/^tg\d+$/.test(m.uid||"")&&(TG.on||m.tok)); }
 function acctHTML(){
