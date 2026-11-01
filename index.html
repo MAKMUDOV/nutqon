@@ -616,6 +616,7 @@ function toast(msg){
 
 function renderSpeakHome(){
   S.spList=true;
+  spPendingCheck().then(p=>{ if(p&&S.view==="speak"&&!document.querySelector('[data-act="sprecover"]')) renderSpeakHome(); });
   stopTimer(); stopRec(); S.mockMode=false; S.view="speak"; S.topic=null;
   const tot = {beg:0,mid:0,adv:0};
   const q = norm(S.query.trim());
@@ -634,6 +635,7 @@ function renderSpeakHome(){
   $app.innerHTML = header() + `
     <div class="back"><button class="ghost" data-act="home">‹ Bosh sahifa</button></div>
     <div class="thead" style="border:0;padding-bottom:0;margin-bottom:0"><span class="lvl" style="color:var(--accent);font-size:1.3rem">Gapirish</span><small>100 mavzu bo'yicha savollar va og'zaki mock</small></div>
+    ${spPendingHTML()}
     <button class="mockcard" data-act="mock"><span><b>Og'zaki mock</b><span>CEFR og'zaki imtihoni kabi: 1.1 → 1.2 → 2 → 3 qism, ~12 daqiqa</span></span></button>
     <div class="levels" role="group" aria-label="Daraja">
       ${Object.entries(LEVELS).map(([k,v])=>`<button class="lv" data-l="${k}" aria-pressed="${!q&&S.level===k}" data-level="${k}"><b>${v.name} <span class="ar" lang="ar">${v.ar}</span></b><span>${v.from}–${v.to}-mavzu · ${v.to-v.from+1} ta bo'lim</span></button>`).join("")}
@@ -1069,11 +1071,11 @@ function micBlockedByFrame(){ return !!micProblem(); }
 function micCardHTML(){
   const on=REC.live(S.exStream);
   return `<div class="card"><h3>Mikrofon</h3>
-    <div class="step"><i>${on?"✓":"🎤"}</i><span id="micstat">${esc(S.micMsg||(on?"Mikrofon yoqilgan":micMsg()||"Hali yoqilmagan — pastdagi tugmani bosing"))}</span></div>
+    <div class="step"><i>🎤</i><span id="micstat">${micBadgeHTML()}<br><small>${esc(S.micMsg||(on?"Biror narsa deb ko'ring — chiziq harakatlanishi kerak.":micMsg()||"Hali yoqilmagan — pastdagi tugmani bosing"))}</small></span></div>
     <div class="meter lt"><u id="micmeter"></u></div>
     <button class="go alt" style="margin-top:8px" data-act="micon">${on?"Mikrofonni o'chirish":"🎤 Mikrofonni yoqish"}</button>
-    ${on?`<button class="go alt" data-act="mictest">🔁 Sinov: 3 soniya yozib, qayta eshitish</button>`:""}
-    <div id="mictest"></div>
+    <button class="go alt" data-act="mictest">🩺 Imtihondan oldin tekshirish (5 soniya)</button>
+    <div id="mictest">${S.mchk&&S.mchk.done?mchkHTML(S.mchk):""}</div>
     ${(MOBILE&&location.protocol!=="https:"&&!on)?`<p class="note" style="margin:8px 2px 0">Eslatma: sahifa https:// emas (${esc(location.protocol.replace(":",""))}://). Telefonda mikrofon ishlamasa, ilovani HTTPS manzilga joylang yoki yozuvni natija ekranida «🎙 Telefon yozgichi» bilan oling.</p>`:""}
     <label class="note" style="display:flex;gap:8px;align-items:flex-start;margin-top:12px"><input type="checkbox" id="srchk" ${SRX.on()?"checked":""} ${SRX.ok?"":"disabled"}><span>Javob matnini avtomatik olish (tekshiruv uchun). ${SRX.ok?"Telefonda yozuvga xalaqit bersa, o'chiring — matnni natija ekranida o'zingiz kiritasiz.":"Bu brauzer qo'llamaydi — matnni natija ekranida o'zingiz kiritasiz."}</span></label>
     <label class="note" style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="wavchk" ${REC.forceWav()?"checked":""} ${window.MediaRecorder?"":"disabled"}><span>Moslik rejimi (WAV). Yozuv bo'sh yoki ovozsiz chiqsa yoqing — eski telefon va brauzerlarda ham ishlaydi${window.MediaRecorder?"":" (bu brauzerda avtomatik yoqilgan)"}.</span></label></div>`;
@@ -1100,20 +1102,56 @@ function micErrText(e,st){
   return TG.on?"Telegram ichida mikrofonni ochib bo'lmadi. Telegram'ni yangilang yoki javobni «🎙 Telefon yozgichi» bilan qo'shing.":"Bu brauzer mikrofonni qo'llamaydi. Chrome (Android/kompyuter) yoki Safari (iPhone) da oching.";
 }
 function micMeterStop(){ if(S.micMeter){ S.micMeter.stop(); S.micMeter=null; } }
+/* MicrophoneManager: holat belgisi (🟢 ishlayapti · 🔴 ishlamayapti · 🟡 ruxsat kutilmoqda · 🎙️ yozilmoqda) */
+const MIC_ST={ok:["🟢","Mikrofon ishlayapti"],fail:["🔴","Mikrofon ishlamayapti"],wait:["🟡","Mikrofon ruxsati kutilmoqda"],rec:["🎙️","Ovoz yozilmoqda"],off:["⚪","Mikrofon yoqilmagan"]};
+function micState(){ if(S.ex&&S.ex.phase==="speak"&&REC.live(S.exStream)) return "rec"; if(S.micSt==="wait"||S.micSt==="fail") return S.micSt; return REC.live(S.exStream)?"ok":(S.micSt||"off"); }
+function micBadgeHTML(){ const k=micState(), b=MIC_ST[k]; return `<span class="micbadge" data-st="${k}" style="font-weight:800">${b[0]} ${b[1]}</span>`; }
+function micWatch(st){
+  try{ (st&&st.getAudioTracks?st.getAudioTracks():[]).forEach(t=>{
+    t.onended=()=>micLost("ended");
+    t.onmute=()=>{ clearTimeout(S.micMuteT); S.micMuteT=setTimeout(()=>{ if(t.muted&&t.readyState==="live") micLost("muted"); },2500); };
+    t.onunmute=()=>clearTimeout(S.micMuteT); }); }catch(x){}
+}
+function micLost(why){
+  const e=S.ex;
+  if(e&&e.phase==="speak"){ exMicLost(e,why); return; }
+  if(S.exStream&&!REC.live(S.exStream)){ micMeterStop(); S.micSt="fail"; S.micMsg="Mikrofon uzildi"+(why==="muted"?" (boshqa ilova yoki tizim mikrofonni o'chirdi)":"")+". Bluetooth/simli mikrofon ulanganini tekshiring va «Mikrofonni yoqish» ni bosing."; if(!e) renderExam(); }
+}
+try{ if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener("devicechange",()=>{
+  const e=S.ex;
+  if(e&&e.phase==="speak"&&(!REC.live(S.exStream)||e.micDown)) exMicLost(e,"device");
+  else if(!e&&S.exStream&&!REC.live(S.exStream)) micLost("device");
+}); }catch(x){}
+async function exMicLost(e,why){
+  if(!e||e.phase!=="speak"||e.reconnecting) return; e.reconnecting=true; e.micLost=(e.micLost||0)+1;
+  const warn=t=>{ const w=document.getElementById("exmwarn"); if(w){ w.hidden=false; w.textContent=t; } };
+  warn("⚠ Mikrofon uzildi — qayta ulanmoqda… Yozilgan qism saqlandi.");
+  try{
+    const old=e.h; e.h=null; if(e.meter){ e.meter.stop(); e.meter=null; }
+    if(old){ try{ const part=await old.stop(); if(part&&part.size) (e.segs=e.segs||[]).push(part); }catch(x){} }
+    REC.stopStream(S.exStream); S.exStream=null;
+    if(S.ex!==e||e.phase!=="speak") return;
+    try{ S.exStream=await REC.mic(); }catch(x){ S.exStream=null; }
+    if(S.ex!==e||e.phase!=="speak"){ return; }
+    if(REC.live(S.exStream)){ micWatch(S.exStream); e.h=REC.start(S.exStream); e.meter=REC.meter(S.exStream,e.meterCb); e.micDown=false; warn("✓ Mikrofon qayta ulandi — gapirishda davom eting."); setTimeout(()=>{ const w=document.getElementById("exmwarn"); if(w&&/qayta ulandi/.test(w.textContent)) w.hidden=true; },4000); }
+    else { e.micDown=true; warn("🔴 Mikrofon uzildi. Mikrofonni qayta ulang (Bluetooth/simli) — ulanganda yozish o'zi davom etadi. Yozilgan qism saqlandi."); }
+  } finally { e.reconnecting=false; }
+}
 async function micOn(){
   REC.unlock();
+  S.micSt="wait"; if(!S.ex) renderExam();
   try{
-    const st=await REC.mic();
+    const st=await REC.mic(); S.micSt="ok"; micWatch(st);
     if(S.ex){ REC.stopStream(st); return; }
     if(S.exStream&&S.exStream!==st) REC.stopStream(S.exStream);
     S.exStream=st; micMeterStop();
     S.micMsg="Mikrofon yoqilgan ✓ — biror narsa deb ko'ring, chiziq harakatlanishi kerak.";
     renderExam();
     S.micMeter=REC.meter(st,l=>{ const m=document.getElementById("micmeter"); if(m) m.style.width=Math.min(100,l*400)+"%"; });
-  }catch(e){ const st=await micDiag(); S.micMsg=micErrText(e,st); renderExam(); }
+  }catch(e){ const st=await micDiag(); S.micSt="fail"; S.micMsg=micErrText(e,st); renderExam(); }
 }
 async function micToggle(){
-  if(REC.live(S.exStream)){ micMeterStop(); REC.stopStream(S.exStream); S.exStream=null; S.micMsg="Mikrofon o'chirildi"; renderExam(); return; }
+  if(REC.live(S.exStream)){ micMeterStop(); REC.stopStream(S.exStream); S.exStream=null; S.micSt="off"; S.micMsg="Mikrofon o'chirildi"; renderExam(); return; }
   await micOn();
 }
 async function micAuto(){   // ruxsat avval berilgan bo'lsa, mikrofon o'zi yoqiladi
@@ -1144,26 +1182,35 @@ const SRX={
   }
 };
 const AI={ key:store.get("gapir:aikey",""), model:store.get("gapir:aimodel","claude-sonnet-5-5") };
-const AI_SYS=`You are a strict but fair CEFR examiner for spoken Modern Standard Arabic (Fusha). You receive JSON: the exam type and a list of items. Each item has the exam part, the question(s), the time limit, the seconds actually spoken, and a TRANSCRIPT of the candidate's spoken answer. Transcripts come from automatic speech recognition or were typed by the candidate: they have no diacritics and may contain recognition glitches or missing punctuation.
+const AI_SYS=`You are a strict but fair CEFR examiner for spoken Modern Standard Arabic (Fusha) in the Uzbek national multilevel exam. You receive JSON: the exam type and a list of items. Each item has the exam part, the question(s), the time limit, the seconds actually spoken, a TRANSCRIPT of the candidate's answer and data about the recording.
+IMPORTANT — transcription errors are NOT candidate errors:
+- Transcripts come from automatic speech recognition (or were typed). They have no diacritics and may contain recognition mistakes.
+- "asr_unclear_words" lists words the recogniser was not sure about; "audio_quality" says how clear the recording was. Never count unclear words, non-words or obviously garbled fragments as grammar or vocabulary errors. Count an error only when it is clearly the speaker's (e.g. wrong agreement between two clearly recognised words). When in doubt, do not count it.
+- Do NOT judge pronunciation (it is measured separately from the audio). Do NOT penalise missing diacritics or punctuation.
 Rules:
-- Judge only the language ability shown in the transcripts. Do NOT penalise missing diacritics (tashkeel), punctuation or likely recognition glitches. Pronunciation cannot be assessed.
 - Never invent words the candidate did not say. Quote mistakes exactly as they appear in the transcript.
-- Expectations by part: 1.1 simple personal answers (A1-A2); 1.2 and "B1" tasks: short connected answers with reasons (B1); 2 and "B2": a developed answer covering all questions with opinions, comparisons, advantages and disadvantages (B2); 3 and "C1": a structured argument covering both sides with nuance and precise vocabulary (C1). The level is the highest level the candidate shows consistently, not the level of the task. Do not inflate. If transcripts are empty or far too short to judge, set "insufficient" to true.
-- Colloquial dialect forms or Uzbek/Russian/English words lower the "fusha" score.
-- Write every explanation in Uzbek (Latin script). Use Arabic script only for quotes and corrections.
-Return ONLY valid JSON (no markdown, no comments) in exactly this shape:
-{"insufficient":false,"level":"A1|A2|B1|B2|C1|C2","plus":false,"level_note":"1-2 sentences in Uzbek","criteria":{"ravonlik":{"score":0,"note":""},"grammatika":{"score":0,"note":""},"lugat":{"score":0,"note":""},"bogllanish":{"score":0,"note":""},"mazmun":{"score":0,"note":""},"fusha":{"score":0,"note":""}},"strengths":["..."],"weak":["..."],"mistakes":[{"answer":1,"said":"exact Arabic quote","fix":"corrected Arabic","why":"short rule in Uzbek"}],"per_answer":[{"answer":1,"comment":"1-2 sentences in Uzbek"}],"advice":["..."]}
-Scores are 0-10 integers. Be consistent and reproducible: apply the rubric below mechanically, so that the same answer always gets the same scores.
-SCORING RUBRIC (integers 0-10):
-- "grammatika": count clear grammar errors (agreement, verb forms and tenses, written case endings, prepositions, word order, wrong definite article) per 100 words: 0-1 → 10; 2 → 9; 3 → 8; 4-5 → 7; 6-7 → 6; 8-9 → 5; 10-12 → 4; 13-15 → 3; 16-20 → 2; more → 1; no usable text → 0.
-- "lugat": 9-10 rich, precise, idiomatic MSA with almost no repetition; 7-8 good range, a few imprecise words; 5-6 adequate everyday words, noticeable repetition; 3-4 basic, frequent repetition or wrong word choice; 0-2 very limited.
-- "bogllanish": 9-10 clear structure and varied linking (لذلك، بالإضافة إلى ذلك، من ناحية أخرى، في الختام); 7-8 logical with some linking words; 5-6 mostly linear with simple links (و، لكن، لأن); 3-4 weak links, a list of sentences; 0-2 no organisation.
-- "vazifa" / "mazmun": compare with every prompt/question: all points answered with relevant development → 9-10; most points → 7-8; partly answered or clearly too short → 5-6; largely off-topic or very short → 3-4; not done → 0-2. A missing or empty answer must lower this score.
-- "imlo" (writing): spelling errors (hamza, taa marbuta, alif maqsura, wrong letters) per 100 words: 0-1 → 10; 2-3 → 8; 4-6 → 6; 7-10 → 4; more → 2.
-- "fusha": 10 pure MSA; 8 a few colloquial or foreign words; 6 several; 4 frequent dialect; 2 mostly dialect or another language.
-- "ravonlik" (speaking): use words per minute and how much of each time limit was used: 90+ wpm and full answers → 9-10; 70-89 → 7-8; 50-69 → 5-6; 30-49 → 3-4; below 30 → 0-2.
-Then set "level" from the average of all criteria: 8.7 or more → C1 (C2 only for near-native work), 6.8-8.6 → B2, 5.1-6.7 → B1, 2.7-5.0 → A2, below 2.7 → A1. Give at most 12 mistakes, the most instructive ones first, and at most 4 advice items.`;
-const CRIT=[["ravonlik","Ravonlik","الطلاقة"],["grammatika","Grammatika","السلامة اللغوية"],["lugat","Lug'at va tuzilma","المفردات والتراكيب"],["bogllanish","Fikr bog'lanishi","تناسق الأفكار"],["mazmun","Mazmun rivoji","تطوير المضمون"],["fusha","Fusha (uslub)","الفصحى"]];
+- Expectations by part: 1.1 simple personal answers (A1-A2); 1.2 and "B1": short connected answers with reasons (B1); 2 and "B2": a developed answer covering all questions with opinions, comparisons, advantages and disadvantages (B2); 3 and "C1": a structured argument covering both sides with nuance (C1). Judge the level the candidate shows, not the level of the task. Do not inflate.
+- If transcripts are empty or far too short to judge, set "insufficient" to true.
+- Dialect forms or Uzbek/Russian/English words count as vocabulary problems.
+- Write every explanation in Uzbek (Latin script). Use Arabic script only for quotes, corrections and model answers.
+Return ONLY valid JSON (no markdown) in exactly this shape:
+{"insufficient":false,"level_note":"1-2 sentences in Uzbek","criteria":{"grammatika":{"score":0,"note":""},"lugat":{"score":0,"note":""},"ravonlik":{"score":0,"note":""},"mazmun":{"score":0,"note":""}},"strengths":["..."],"weak":["..."],"mistakes":[{"answer":1,"said":"exact Arabic quote","fix":"corrected Arabic","why":"short rule in Uzbek"}],"vocab_tips":["useful Arabic words or phrases with Uzbek meaning, for this topic"],"improve":["concrete ways to improve the answers, in Uzbek"],"per_answer":[{"answer":1,"comment":"1-2 sentences in Uzbek","model_answer":"a natural model answer in MSA Arabic for this question at the level of the part (30-60 words for 1.1/1.2, 90-140 words for 2 and 3)"}],"advice":["..."]}
+Scores are 0-10 integers. Apply the rubric mechanically so the same answer always gets the same scores.
+SCORING RUBRIC:
+- "grammatika": clear grammar errors (verb forms and tenses, gender and number agreement, sentence structure, prepositions, definite article, word order) per 100 words: 0-1 → 10; 2 → 9; 3 → 8; 4-5 → 7; 6-7 → 6; 8-9 → 5; 10-12 → 4; 13-15 → 3; 16-20 → 2; more → 1; no usable text → 0.
+- "lugat": variety and accuracy of vocabulary for the level: 9-10 rich, precise, idiomatic MSA with complex phrases and almost no repetition; 7-8 good range, a few imprecise words; 5-6 adequate everyday words, noticeable repetition; 3-4 basic, frequent repetition or wrong word choice, dialect/foreign words; 0-2 very limited.
+- "ravonlik": use "words_per_minute", "long_pauses" (pauses of 1.5 s or more), hesitations, false starts and how the ideas connect: 90+ wpm, few pauses, connected ideas → 9-10; 70-89 → 7-8; 50-69 or several long pauses → 5-6; 30-49 or many pauses → 3-4; below 30 → 0-2. For typed answers judge only connection of ideas.
+- "mazmun": relevance to every question, development of ideas, examples, logical order: all points answered and developed with examples → 9-10; most points → 7-8; partly answered or clearly too short → 5-6; largely off-topic or very short → 3-4; not answered → 0-2. A missing or empty answer must lower this score.
+Give at most 12 mistakes (most instructive first), at most 6 vocab_tips, 4 improve items and 4 advice items. "per_answer" must contain one object per answer, in order.`;
+/* SpeakingEvaluationService — mezonlar va vaznlar shu yerda sozlanadi (rubrika) */
+const CRIT=[["grammatika","Grammatik to'g'rilik","السلامة النحوية"],["lugat","Lug'at boyligi","ثراء المفردات"],["ravonlik","Ravonlik","الطلاقة"],["talaffuz","Talaffuz","النطق"],["mazmun","Mavzuga moslik","الصلة بالموضوع"]];
+const CRIT_OLD=[["ravonlik","Ravonlik","الطلاقة"],["grammatika","Grammatika","السلامة اللغوية"],["lugat","Lug'at va tuzilma","المفردات والتراكيب"],["bogllanish","Fikr bog'lanishi","تناسق الأفكار"],["mazmun","Mazmun rivoji","تطوير المضمون"],["fusha","Fusha (uslub)","الفصحى"]];
+const SP_RUBRIC={
+  weight:{grammatika:1,lugat:1,ravonlik:1,talaffuz:1,mazmun:1},   // umumiy ballga ta'siri
+  wpm:[[90,10],[80,9],[70,8],[60,7],[50,6],[40,5],[30,4],[20,3],[10,2],[0,1]],   // so'z/daqiqa → ravonlik
+  minWords:15,          // bundan kam so'z — baho ishonchsiz
+  poorShare:0.5         // javoblarning shu ulushi past sifatli bo'lsa — qayta yozish tavsiya etiladi
+};
 const LVLS=["A1","A2","B1","B2","C1","C2"];
 const arWords=t=>String(t||"").split(/\s+/).filter(w=>/[\u0600-\u06FF]/.test(w));
 /* ---- Tezkor tekshiruv (internetsiz, kalitsiz) ---- */
@@ -1258,10 +1305,10 @@ function aiCardHTML(e,ctx){
   const words=e.res.reduce((a,r)=>a+arWords(r.text).length,0);
   const way=S.hasSample?"Claude ichida ochilgan — kalitsiz ishlaydi.":AI.key?"API kalit orqali ishlaydi.":"Bepul, kuniga 15 ta tekshiruv.";
   return `<div class="card"><h3>AI tekshiruvi</h3>
-    <p class="note" style="margin:0 0 10px">Javob matni AI ga yuboriladi: xatolar to'g'rilari bilan ko'rsatiladi va daraja (A1–C2) beriladi. Matn bo'lmasa, yozuvingiz avtomatik matnga aylantiriladi. Talaffuz baholanmaydi. ${way}</p>
+    <p class="note" style="margin:0 0 10px">Javob matni AI ga yuboriladi: xatolar to'g'rilari bilan ko'rsatiladi va daraja (A1–C2) beriladi. ${e.kind==="writing"?"":"Yozuvingiz serverda matnga aylantiriladi; talaffuz audio asosida baholanadi. "}${way}</p>
     ${e.sttState==="loading"?`<div class="step"><i>🎧</i><span>Ovoz matnga aylantirilmoqda… ${e.sttN||0}/${e.sttT||0}</span></div>`:""}
     ${e.sttErr?`<div class="warn" style="margin:0 0 10px">${esc(e.sttErr)}</div>`:""}
-    ${e.sttState!=="loading"&&e.kind!=="writing"&&(e.res||[]).some(r=>r.blob&&!String(r.text||"").trim())?`<button class="go alt" data-act="sttgo"${c}>🎧 Ovozdan matnni olish</button>`:""}
+    ${e.sttState!=="loading"&&e.kind!=="writing"&&(e.res||[]).some(r=>r.blob&&(!String(r.text||"").trim()||!r.stt))?`<button class="go alt" data-act="sttgo"${c}>🎧 ${e.res.some(r=>r.stt)?"Transkripsiyani qayta urinish":"Ovozdan matnni olish"}</button>`:""}
     ${words<8&&e.sttState!=="loading"?`<div class="warn" style="margin:0 0 10px">Matn hali yo'q yoki juda qisqa. Javob matnini maydonga yozing yoki telefon klaviaturasidagi 🎤 bilan arabcha ayting.</div>`:""}
     ${e.evErr?`<div class="warn" style="margin:0 0 10px">${esc(e.evErr)}</div>`:""}
     <button class="go" data-act="aieval"${c}>🧠 ${e.ev?"Qayta tekshirish":"AI bilan tekshirish"}</button>
@@ -1275,9 +1322,46 @@ function statsHTML(e){
   const uniq=new Set(w.map(x=>x.replace(/[\u064B-\u065F]/g,""))).size;
   return `<div class="hstats" style="margin-top:12px"><div style="background:var(--soft);border-color:var(--line)"><b>${w.length}</b><span>so'z</span></div><div style="background:var(--soft);border-color:var(--line)"><b>${Math.round(w.length/(secs/60))}</b><span>so'z/daqiqa</span></div><div style="background:var(--soft);border-color:var(--line)"><b>${Math.round(100*uniq/w.length)}%</b><span>takrorlanmas so'z</span></div></div>`;
 }
+const QLAB={good:"yaxshi",fair:"o'rtacha",poor:"past",silent:"ovoz yo'q",unknown:"tekshirilmagan"};
+function sttInfoHTML(r){
+  if(!r||!r.stt) return "";
+  const q=r.stt, bad=q.quality==="poor"||q.quality==="silent";
+  return `<div class="note" style="margin:6px 0 2px">${bad?"🔴":q.quality==="fair"?"🟡":"🟢"} Audio sifati: <b>${QLAB[q.quality]||q.quality}</b>${q.pron!=null?` · talaffuz <b>${q.pron}/10</b>`:""}${q.intel!=null?` · tushunarlilik <b>${q.intel}/10</b>`:""}${r.flu&&r.flu.pauses?` · uzun pauza: ${r.flu.pauses}`:""}</div>
+    ${(q.unclear||[]).length?`<div class="note">Noaniq eshitilgan so'zlar (transkripsiya xatosi bo'lishi mumkin, baholashda xato hisoblanmaydi): <span class="ar" lang="ar">${q.unclear.map(esc).join("، ")}</span></div>`:""}`;
+}
+function spEvalHTML(ev,e){
+  const cs=CRIT.map(c=>{ const x=(ev.criteria||{})[c[0]]||{}; const ok=x.score!=null&&!isNaN(+x.score); return {k:c[0],uz:c[1],ar:c[2],sc:ok?Math.round(Math.max(0,Math.min(10,+x.score))*10):null,note:x.note||""}; });
+  const confCol={"yuqori":"#2fb52a","o'rta":"#e0a800","past":"#e5484d"}[ev.conf]||"#888";
+  const confHTML=`<span class="chip" style="background:${confCol};color:#fff">Ishonchlilik: ${esc(ev.conf||"?")}</span>${(ev.confWhy||[]).length?`<div class="note" style="margin-top:4px;opacity:.9">${ev.confWhy.map(esc).join(" · ")}</div>`:""}`;
+  const pmap=new Map(); e.res.forEach((r,i)=>{ if(r.stt) (r.stt.notes||[]).forEach(n=>{ const k=String(n).trim(); if(!pmap.has(k)) pmap.set(k,[]); pmap.get(k).push(i+1); }); });
+  const pron=[...pmap].map(([n,a])=>[a.join(", "),n]);
+  const pgood=[...new Set(e.res.flatMap(r=>r.stt?(r.stt.good||[]).map(x=>String(x).trim()):[]))];
+  const strong=[...new Set((ev.strengths||[]).concat(pgood))];
+  if(ev.reRecord) return `<div class="hero evhero"><div class="kick">GAPIRISH · AI BAHOSI</div><div class="ttl" style="text-align:left;font-size:1.3rem">Audio sifati past — ishonchli baho chiqarib bo'lmaydi</div>
+      <p style="margin:6px 0 0">Yozuvlarning ko'pchiligida ovoz yaxshi eshitilmadi (shovqin, juda past ovoz yoki mikrofondan uzoq). Noto'g'ri baho bermaslik uchun ball hisoblanmadi.</p>${confHTML}</div>
+    <div class="card"><h3>Nima qilish kerak</h3><div class="step"><i>1</i><span>Tinch joyga o'ting, telefonni og'zingizdan 15–20 sm uzoqlikda tuting.</span></div><div class="step"><i>2</i><span>Imtihondan oldingi «Mikrofon tekshiruvi» ni o'tkazing — ✅ chiqishi kerak.</span></div><div class="step"><i>3</i><span>Imtihonni qayta topshiring.</span></div></div>
+    ${e.res.map((r,i)=>r.stt?`<div class="mist"><b>${i+1}-javob</b>${sttInfoHTML(r)}${r.stt.note?`<div class="note">${esc(r.stt.note)}</div>`:""}</div>`:"").join("")}`;
+  const li=LVLS.indexOf(ev.level);
+  return `<div class="hero evhero"><div class="kick">SPEAKING MOCK NATIJASI · AI BAHOSI</div>
+      <div class="lvrow"><div class="big">${esc(ev.level||"?")}</div><div><b>${ev.score100!=null?ev.score100:"—"} / 100</b><br><span style="opacity:.9;font-size:.85rem">imtihon shkalasida ${ev.score75!=null?ev.score75:"—"} / 75 · ${e.res.length} ta javob</span></div></div>
+      <div class="pbar"><u style="width:${ev.score100||0}%"></u></div>
+      <div class="msteps" style="margin:0 0 8px">${LVLS.slice(0,5).map((l,k)=>`<span class="${k<li?"d":k===li?"c":""}">${l}</span>`).join("")}</div>
+      <p style="margin:6px 0 8px">Taxminiy CEFR darajasi: <b>${esc(ev.level||"?")}</b>. ${esc(ev.level_note||"")}</p>${confHTML}</div>
+    <div class="card"><h3>Mezonlar bo'yicha (0–100)</h3>
+      ${cs.map(c=>`<div class="crit"><span>${c.uz} <span class="ar" lang="ar" style="color:var(--muted)">${c.ar}</span></span><b>${c.sc==null?"—":c.sc}<small style="display:inline;color:var(--muted)">${c.sc==null?" baholanmadi":"/100"}</small></b><div class="bar"><u style="width:${c.sc||0}%"></u></div>${c.note?`<small>${esc(c.note)}</small>`:""}</div>`).join("")}
+      <p class="note" style="margin:8px 0 0">Talaffuz audio yozuvdan baholanadi (matndan emas). Ravonlik — gapirish tezligi va pauzalar o'lchovi + AI bahosi. Grammatika, lug'at va mavzuga moslik — transkripsiya asosida; noaniq eshitilgan so'zlar xato hisoblanmaydi.</p></div>
+    ${strong.length?`<div class="card"><h3>💪 Kuchli tomonlari</h3>${strong.map(x=>`<p style="margin:6px 0">• ${esc(x)}</p>`).join("")}</div>`:""}
+    ${(ev.mistakes||[]).length?`<div class="card"><h3>Grammatik xatolar va to'g'rilari</h3>${ev.mistakes.map(m=>`<div class="mist"><small style="color:var(--muted)">Javob ${esc(m.answer)}</small><div class="ar bad" lang="ar">${esc(m.said)}</div><div class="ar ok" lang="ar">→ ${esc(m.fix)}</div><div class="note">${esc(m.why)}</div></div>`).join("")}</div>`:""}
+    <div class="card"><h3>🗣 Talaffuzdagi kamchiliklar</h3>${pron.length?pron.map(p=>`<p style="margin:6px 0"><b>${p[0]}.</b> ${esc(p[1])}</p>`).join(""):`<p class="note" style="margin:0">${cs.find(c=>c.k==="talaffuz").sc==null?"Talaffuz baholanmadi (audio yo'q yoki sifati past).":"Sezilarli talaffuz xatosi topilmadi."}</p>`}</div>
+    ${(ev.vocab_tips||[]).length?`<div class="card"><h3>📚 Lug'at boyligini oshirish</h3>${ev.vocab_tips.map(x=>`<p style="margin:6px 0">• ${esc(x)}</p>`).join("")}</div>`:""}
+    ${(ev.improve||[]).length||(ev.advice||[]).length?`<div class="card"><h3>📈 Javobni yaxshilash</h3>${(ev.improve||[]).concat(ev.advice||[]).map(x=>`<p style="margin:6px 0">• ${esc(x)}</p>`).join("")}</div>`:""}
+    ${(ev.per_answer||[]).length?`<div class="card"><h3>Har bir javob va namunaviy javob</h3>${ev.per_answer.map(a=>{ const r=e.res[(+a.answer||1)-1]; return `<div class="mist"><b>${esc(a.answer)}-javob</b>${r?`<div class="ar note" lang="ar">${r.q.map(esc).join(" / ")}</div>`:""}<p style="margin:6px 0">${esc(a.comment||"")}</p>${a.model_answer?`<details><summary>✨ Namunaviy javob</summary><div class="ar" lang="ar" dir="rtl" style="font-size:1.1rem;line-height:1.9">${esc(a.model_answer)}</div></details>`:""}</div>`; }).join("")}</div>`:""}
+    <p class="note" style="margin:10px 4px">AI bahosi taxminiy va o'quv maqsadida. Bu rasmiy CEFR sertifikati natijasi emas.</p>`;
+}
 function evalHTML(ev,e){
   if(ev.insufficient) return `<div class="card"><h3>Baho</h3><p style="margin:0">Baholash uchun matn yetarli emas. Javob matnlarini to'ldirib, qayta baholang.</p></div>`;
-  const cs=(e.crit||CRIT).map(c=>({k:c[0],uz:c[1],ar:c[2],sc:Math.max(0,Math.min(10,+((ev.criteria||{})[c[0]]||{}).score||0)),note:((ev.criteria||{})[c[0]]||{}).note||""}));
+  if(ev.v2&&e.kind!=="writing") return spEvalHTML(ev,e);
+  const cs=(e.crit||(e.kind==="writing"?CRIT:CRIT_OLD)).map(c=>({k:c[0],uz:c[1],ar:c[2],sc:Math.max(0,Math.min(10,+((ev.criteria||{})[c[0]]||{}).score||0)),note:((ev.criteria||{})[c[0]]||{}).note||""}));
   const avg=cs.reduce((a,c)=>a+c.sc,0)/cs.length, has75=ev.score75!=null, total=has75?ev.score75:Math.round(avg*30)/10, tmax=has75?75:30, wrk=e.kind==="writing";
   const li=LVLS.indexOf(ev.level), sorted=cs.slice().sort((a,b)=>b.sc-a.sc);
   const wt=wrk&&ev.wtasks?`<div class="card"><h3>Vazifalar bo'yicha (rasmiy mezon)</h3>${ev.wtasks.map(t=>`<div class="mist"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>Topshiriq ${esc(t.part||t.answer)}</b><small class="note">${t.words} so'z · <b>${t.pts.toFixed(2)} / ${t.max.toFixed(2)} ball</b></small></div>
@@ -1336,11 +1420,14 @@ async function aiCopy(e,rr){
 function aiParse(txt){
   const a=txt.indexOf("{"), b=txt.lastIndexOf("}");
   const ev=JSON.parse(txt.slice(a,b+1));
-  if(!ev.insufficient && !LVLS.includes(ev.level) && !Array.isArray(ev.tasks)) throw new Error("level");
+  if(!ev.insufficient && !LVLS.includes(ev.level) && !Array.isArray(ev.tasks) && !(ev.criteria&&typeof ev.criteria==="object")) throw new Error("level");
   return ev;
 }
 async function aiRun(e){
-  const items=e.res.map((r,i)=>({answer:i+1,part:r.part,questions:r.q,time_limit_s:r.limit,spoken_s:r.secs,transcript:(r.text||"").trim()}));
+  const items=e.res.map((r,i)=>{ const w=arWords(r.text).length, fd=r.flu&&r.flu.dur?r.flu.dur:(r.secs||0);
+    return {answer:i+1,part:r.part,questions:r.q,time_limit_s:r.limit,spoken_s:r.secs,transcript:(r.text||"").trim(),
+      typed:!r.blob, audio_quality:r.stt?r.stt.quality:(r.blob?"unknown":"no audio"), asr_unclear_words:r.stt?r.stt.unclear||[]:[],
+      words_per_minute:r.blob&&fd>=3&&w?Math.round(w/(fd/60)):null, long_pauses:r.flu?r.flu.pauses:null}; });
   const payload=JSON.stringify(e.kind==="writing"?{exam:"writing tasks",items:e.res.map((r,i)=>({answer:i+1,task:r.part,prompt:r.q[0],minutes:Math.round(r.limit/60),required_words:(r.min||50)+(r.max?"-"+r.max:"+"),text:(r.text||"").trim()}))}:{exam:e.lvl==="MOCK"?"full mock (parts 1.1, 1.2, 2, 3)":"level "+e.lvl,items});
   const SYS=e.sys||AI_SYS;
   const smp=await getSample();
@@ -1405,13 +1492,36 @@ async function toWav16(blob){
   while(a<b&&!loud(a)) a+=win; while(b>a&&!loud(Math.max(0,b-win))) b-=win;
   a=Math.max(0,a-sr*0.3); b=Math.min(full.length,b+sr*0.3);
   const d=full.subarray(Math.floor(a),Math.ceil(b)), n=d.length, ab2=new ArrayBuffer(44+n*2), v=new DataView(ab2);
+  // ravonlik o'lchovi: gap ichidagi uzun pauzalar (≥1,5 s)
+  let pauses=0, pauseSecs=0, run=0; const fw=Math.round(sr*0.02);
+  for(let i=0;i+fw<=n;i+=fw){ let m=0; for(let k=i;k<i+fw;k++){ const x=Math.abs(d[k]); if(x>m) m=x; }
+    if(m>thr){ if(run*0.02>=1.5){ pauses++; pauseSecs+=run*0.02; } run=0; } else run++; }
   const ws=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
   ws(0,"RIFF"); v.setUint32(4,36+n*2,true); ws(8,"WAVE"); ws(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
   v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); ws(36,"data"); v.setUint32(40,n*2,true);
   let peak=0; for(let i=0;i<n;i++) peak=Math.max(peak,Math.abs(d[i]));
   const g=peak>0.02&&peak<0.5?0.9/peak:1;
   for(let i=0;i<n;i++){ const s=Math.max(-1,Math.min(1,d[i]*g)); v.setInt16(44+i*2,s<0?s*0x8000:s*0x7fff,true); }
-  return {blob:new Blob([ab2],{type:"audio/wav"}),dur:n/sr};
+  return {blob:new Blob([ab2],{type:"audio/wav"}),dur:n/sr,pauses,pauseSecs:Math.round(pauseSecs*10)/10,peak:pk};
+}
+/* Bir nechta audio bo'lakni (mikrofon uzilib qayta ulanganda) bitta WAV ga birlashtirish */
+async function mergeAudio(parts){
+  const AC=window.AudioContext||window.webkitAudioContext, OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const blobs=parts.filter(p=>p&&p.blob&&p.blob.size>0); if(!blobs.length) return null; if(blobs.length===1||!AC||!OAC) return blobs[blobs.length-1];
+  const sr=16000, chans=[];
+  for(const p of blobs){ try{ const ab=await p.blob.arrayBuffer(), ac=new AC(); let buf;
+      try{ buf=await new Promise((res,rej)=>{ const pr=ac.decodeAudioData(ab,res,rej); if(pr&&pr.then) pr.then(res,rej); }); } finally{ try{ ac.close(); }catch(x){} }
+      const off=new OAC(1,Math.max(1,Math.ceil(buf.duration*sr)),sr), src=off.createBufferSource(); src.buffer=buf; src.connect(off.destination); src.start(0);
+      const out=await new Promise((res,rej)=>{ off.oncomplete=ev=>res(ev.renderedBuffer); const pr=off.startRendering(); if(pr&&pr.then) pr.then(res,rej); });
+      chans.push(out.getChannelData(0)); }catch(x){} }
+  if(!chans.length) return blobs[blobs.length-1];
+  const n=chans.reduce((a,c)=>a+c.length,0), ab2=new ArrayBuffer(44+n*2), v=new DataView(ab2);
+  const ws=(o,x)=>{ for(let i=0;i<x.length;i++) v.setUint8(o+i,x.charCodeAt(i)); };
+  ws(0,"RIFF"); v.setUint32(4,36+n*2,true); ws(8,"WAVE"); ws(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); ws(36,"data"); v.setUint32(40,n*2,true);
+  let o=44; for(const c of chans) for(let i=0;i<c.length;i++,o+=2){ const x=Math.max(-1,Math.min(1,c[i])); v.setInt16(o,x<0?x*0x8000:x*0x7fff,true); }
+  const blob=new Blob([ab2],{type:"audio/wav"});
+  return {blob,url:URL.createObjectURL(blob),size:blob.size,mime:"audio/wav",ext:"wav",merged:chans.length};
 }
 /* AI ba'zan bir iborani qayta-qayta yozib yuboradi — takrorni olib tashlash va ovoz uzunligiga mos cheklash */
 function sttClean(text,secs){
@@ -1423,23 +1533,31 @@ function sttClean(text,secs){
   const max=secs>0?Math.ceil(secs*3.3)+6:9999; if(w.length>max){ w=w.slice(0,max); cut=true; }
   return {text:w.join(" "),cut};
 }
-const sttNeed=e=>e&&e.kind!=="writing"&&(e.res||[]).some(r=>r.blob&&!String(r.text||"").trim()&&!r.sttTried);
+/* SpeechToTextService: server (Gemini) — matn + audio sifati + talaffuz + noaniq so'zlar.
+   Brauzer SpeechRecognition faqat yordamchi; asosiy matn serverdan olinadi. */
+const sttTodo=r=>r.blob&&!r.sttTried&&(!String(r.text||"").trim()||!r.stt);
+const sttNeed=e=>e&&e.kind!=="writing"&&(e.res||[]).some(sttTodo);
 async function sttFill(e,rr){
   if(!sttNeed(e)||e.sttState==="loading") return;
   if(!LB.url){ return; }
-  const m=me()||{}; const todo=e.res.filter(r=>r.blob&&!String(r.text||"").trim()&&!r.sttTried);
-  e.sttState="loading"; e.sttErr=""; e.sttN=0; e.sttT=todo.length; rr&&rr();
+  const m=me()||{}; const todo=e.res.filter(sttTodo);
+  if(navigator.onLine===false){ e.sttErr="Internet uzilgan. Yozuvlaringiz saqlangan — internet qaytganda matn avtomatik olinadi (yoki «Ovozdan matnni olish» ni bosing)."; e.sttWaitNet=true; rr&&rr(); return; }
+  e.sttState="loading"; e.sttErr=""; e.sttWaitNet=false; e.sttN=0; e.sttT=todo.length; rr&&rr();
   for(const r of todo){
     r.sttTried=true;
     try{
       let w=null; try{ w=await toWav16(r.blob); }catch(x){ w=null; }
-      if(w&&w.silent){ r.warn="Yozuvda ovoz eshitilmadi — matn olinmadi."; e.sttN++; continue; }
+      if(w&&w.silent){ r.warn="Yozuvda ovoz eshitilmadi — matn olinmadi. Qayta yozing yoki mikrofonni tekshiring."; r.stt={quality:"silent",pron:null,intel:null,notes:[],good:[],unclear:[],note:"Ovoz yo'q"}; r.flu={dur:0,pauses:0,pauseSecs:0}; e.sttN++; continue; }
       const blob=(w&&w.blob)||r.blob, mime=(w&&w.blob)?"audio/wav":((r.blob.type||"").split(";")[0]||"audio/webm");
       const dur=(w&&w.dur)||r.secs||0;
-      const j=await tPost({action:"stt",uid:m.uid||"anon",mime,secs:Math.round(dur),b64:await blobB64(blob)},120000);
-      if(j&&j.ok){ if(!String(r.text||"").trim()){ const c=sttClean(j.text,Math.max(dur,r.secs||0)); r.text=c.text; if(c.cut) r.warn="Avtomatik matnda ortiqcha takror bor edi — olib tashlandi. Yozuvni tinglab, matnni tekshiring."; } }
+      if(w) r.flu={dur:Math.round(w.dur*10)/10,pauses:w.pauses||0,pauseSecs:w.pauseSecs||0};
+      const j=await tPost({action:"stt",uid:m.uid||"anon",mime,secs:Math.round(dur),detail:true,b64:await blobB64(blob)},120000);
+      if(j&&j.ok){ const c=sttClean(j.text,Math.max(dur,r.secs||0));
+        r.stt=j.q||null; r.sttText=c.text;
+        if(c.text&&(!r.edited||!String(r.text||"").trim())){ r.text=c.text; if(c.cut) r.warn="Avtomatik matnda ortiqcha takror bor edi — olib tashlandi. Yozuvni tinglab, matnni tekshiring."; }
+        if(r.stt&&(r.stt.quality==="poor"||r.stt.quality==="silent")) r.warn="Audio sifati past"+(r.stt.note?" ("+r.stt.note+")":"")+" — matn va talaffuz bahosi ishonchsiz. Tinch joyda, mikrofonga yaqinroq qayta yozish tavsiya etiladi."; }
       else{ const er=j&&j.err; e.sttErr=er==="daylimit"?"Bugungi ovozdan matn olish limiti tugadi. Matnni o'zingiz yozing yoki ertaga urinib ko'ring.":er==="busy"?"Server band — birozdan keyin «Ovozdan matnni olish» ni qayta bosing.":"Ovozdan matn olinmadi. Qayta urinib ko'ring yoki matnni o'zingiz yozing."; if(er==="daylimit") break; r.sttTried=false; }
-    }catch(x){ e.sttErr="Internet bilan muammo — «Ovozdan matnni olish» ni qayta bosing."; r.sttTried=false; }
+    }catch(x){ e.sttErr=navigator.onLine===false?"Internet uzilgan. Yozuvlaringiz saqlangan — internet qaytganda matn avtomatik olinadi.":"Server javob bermadi — «Ovozdan matnni olish» ni qayta bosing."; e.sttWaitNet=navigator.onLine===false; r.sttTried=false; }
     e.sttN++; if(e.sttState==="loading"&&rr) rr();
   }
   e.sttState=""; e.qc=e.res.some(r=>arWords(r.text).length);
@@ -1456,7 +1574,8 @@ async function aiEvaluate(e,rr){
     const ok=rs.filter(r=>r.status==="fulfilled").map(r=>r.value);
     if(!ok.length) throw rs[0].reason;
     const ev=ok.length>1?aiMerge(ok[0],ok[1]):ok[0];
-    if(!ev.insufficient){ ev.score75=aiScore75(ev,e); ev.level=lvl75(ev.score75); ev.plus=false; }
+    if(e.kind!=="writing"&&!ev.insufficient) spFinalize(ev,e);
+    if(!ev.insufficient){ ev.score75=aiScore75(ev,e); ev.level=ev.score75==null?(ev.level||"?"):lvl75(ev.score75); ev.plus=false; }
     e.ev=ev; e.evState=""; e.evErr=""; rr(); if(e===S.ex) histSave(e); spSendOnce(e); if(e.onEval) e.onEval(ev);
     setTimeout(()=>{ const h=document.querySelector(".evhero"); if(h) h.scrollIntoView({behavior:"smooth",block:"start"}); },50);
   }catch(x){ e.evState=""; e.evErr=(x&&x.message)||"Xato yuz berdi."; rr(); if(e.onFail) e.onFail(); }
@@ -1468,22 +1587,77 @@ document.getElementById("namesave").onclick=()=>{ const v=(document.getElementBy
 document.getElementById("nameskip").onclick=()=>{ const d=document.getElementById("namedlg"); try{d.close();}catch(x){d.removeAttribute("open");} };
 document.getElementById("aisave").onclick=()=>{ AI.key=document.getElementById("aikey").value.trim(); AI.model=document.getElementById("aimodel").value.trim()||"claude-sonnet-5-5"; store.set("gapir:aikey",AI.key); store.set("gapir:aimodel",AI.model); try{aidlg.close();}catch(x){aidlg.removeAttribute("open");} toast("Saqlandi"); };
 document.getElementById("aiclear").onclick=()=>{ AI.key=""; store.set("gapir:aikey",""); document.getElementById("aikey").value=""; toast("Kalit o'chirildi"); };
-document.addEventListener("input",ev=>{ const t=ev.target; if(t&&t.classList&&t.classList.contains("tx")&&S.ex&&S.ex.res[+t.dataset.ri]){ S.ex.res[+t.dataset.ri].text=t.value; histSaveSoon(); } });
+document.addEventListener("input",ev=>{ const t=ev.target; if(t&&t.classList&&t.classList.contains("tx")&&S.ex&&S.ex.res[+t.dataset.ri]){ const r=S.ex.res[+t.dataset.ri]; r.text=t.value; r.edited=true; histSaveSoon(); } });
+/* Internet qaytganda: kutib turgan transkripsiyani davom ettirish */
+window.addEventListener("online",()=>{ const e=S.ex; if(e&&e.phase==="done"&&e.sttWaitNet&&sttNeed(e)){ e.sttWaitNet=false; const rr=()=>{ if(S.ex===e) renderExam(); };
+  sttFill(e,rr).then(()=>{ if(S.ex===e&&!e.ev&&e.evState!=="loading"&&e.res.reduce((a,r)=>a+arWords(r.text).length,0)>=8) aiEvaluate(e,rr); }); } });
 document.addEventListener("change",ev=>{ if(ev.target&&ev.target.id==="srchk") store.set("gapir:sr",ev.target.checked); if(ev.target&&ev.target.id==="wavchk"){ store.set("gapir:wav",ev.target.checked); toast(ev.target.checked?"Moslik rejimi (WAV) yoqildi":"Odatiy yozish rejimi"); } });
+/* Imtihondan oldingi avtomatik tekshiruv: 7 bosqich, 5 soniyalik sinov yozuvi */
+const MCHK=[["dev","Mikrofon mavjudligi"],["perm","Mikrofon ruxsati"],["sig","Ovoz signali"],["rec","Audio yozish"],["play","Yozuvni qayta eshittirish"],["net","Internet aloqasi"],["srv","Serverga audio yuborish"]];
+function mchkHTML(c){
+  const ic={ok:"✅",fail:"❌",warn:"⚠️",run:"⏳",wait:"⚪"};
+  return `<div class="card" style="margin-top:10px"><h3>Mikrofon tekshiruvi</h3>
+    ${MCHK.map(([k,lb])=>{ const x=c.st[k]||{s:"wait"}; return `<div class="step"><i>${ic[x.s]}</i><span><b>${lb}</b>${x.m?`<br><small class="note">${esc(x.m)}</small>`:""}</span></div>`; }).join("")}
+    ${c.count!=null?`<p style="margin:8px 0 0"><span class="rdot" style="background:var(--danger)"></span>Yozilmoqda… arabcha ayting: <span class="ar" lang="ar">«مرحبًا، اسمي … وأنا أدرس اللغة العربية»</span> — <b>${c.count}</b></p><div class="meter lt"><u id="mchkmeter"></u></div>`:""}
+    ${c.url?`<audio controls src="${c.url}" style="width:100%;margin-top:8px"></audio>`:""}
+    ${c.done?(c.ok?`<div class="step" style="margin-top:8px"><i>✅</i><span><b>Mikrofon tayyor. Imtihonni boshlashingiz mumkin.</b>${c.fmt?`<br><small class="note">Format: ${esc(c.fmt)}</small>`:""}</span></div>`
+      :`<div class="warn" style="margin:8px 0 0"><b>Muammo aniqlandi.</b> ${c.fix.map(esc).join(" ")}</div><button class="go alt" data-act="mictest">↻ Qayta tekshirish</button>`):""}</div>`;
+}
 async function micTest(){
-  const box=document.getElementById("mictest"); if(!box) return;
-  REC.unlock();
-  if(!REC.live(S.exStream)){ try{ REC.stopStream(S.exStream); S.exStream=await REC.mic(); }catch(x){ box.innerHTML=`<p class="note" style="color:var(--danger)">${esc(micErrText(x,await micDiag()))}</p>`; return; } }
-  let h; try{ h=REC.start(S.exStream); }catch(x){ box.innerHTML=`<p class="note" style="color:var(--danger)">Bu brauzer ovoz yozishni qo'llamaydi. Pastdagi «🎙 Telefon yozgichi» dan foydalaning.</p>`; return; }
-  let peak=0; const m=REC.meter(S.exStream,l=>{ peak=Math.max(peak,l); });
-  let n=3; box.innerHTML=`<p class="note"><span class="rdot" style="background:var(--danger)"></span>Yozilmoqda… «مرحبا، كيف حالك؟» deb ayting <b id="mtn">3</b></p>`;
-  await new Promise(r=>{ const id=setInterval(()=>{ n--; const el=document.getElementById("mtn"); if(el) el.textContent=n; if(n<=0){ clearInterval(id); r(); } },1000); });
-  const r=await h.stop(); if(m) m.stop();
-  if(!document.getElementById("mictest")) return;
-  const fmtName=r?(/wav/.test(r.mime)?"WAV":/mp4|aac/.test(r.mime)?"MP4":/ogg/.test(r.mime)?"OGG":"WebM"):"";
-  document.getElementById("mictest").innerHTML = r
-    ? `<audio controls src="${r.url}" style="width:100%;margin-top:8px"></audio><p class="note" style="margin:4px 0 0">${peak<0.006?"⚠ Ovoz deyarli eshitilmadi — mikrofonga yaqinroq gapiring yoki «Moslik rejimi» ni yoqing.":"✓ Yozuv ishlayapti"} · ${fmtName} · ${Math.max(1,Math.round(r.size/1024))} KB</p>`
-    : `<p class="note" style="color:var(--danger)">Yozuv bo'sh chiqdi. «Moslik rejimi (WAV)» ni yoqib, qayta sinang.</p>`;
+  const box=document.getElementById("mictest"); if(!box||S.mchkRun) return;
+  S.mchkRun=true; REC.unlock();
+  const c={st:{},fix:[],count:null,url:null,done:false,ok:false}; S.mchk=c;
+  const draw=()=>{ const b=document.getElementById("mictest"); if(b) b.innerHTML=mchkHTML(c); };
+  const set=(k,st,m)=>{ c.st[k]={s:st,m:m||""}; draw(); };
+  const fail=(k,m,fix)=>{ set(k,"fail",m); if(fix) c.fix.push(fix); };
+  try{
+    // 1. mikrofon mavjudligi
+    set("dev","run");
+    const mp=micProblem();
+    if(mp){ fail("dev",micMsg(),"Boshqa brauzerda (Chrome yoki Safari) oching."); return; }
+    let devs=null; try{ devs=await navigator.mediaDevices.enumerateDevices(); }catch(x){}
+    if(devs&&devs.length&&!devs.some(d=>d.kind==="audioinput")){ fail("dev","Qurilmada mikrofon topilmadi.","Mikrofon yoki quloqchinni ulang (Bluetooth bo'lsa, juftlang), keyin qayta tekshiring."); return; }
+    set("dev","ok",devs?devs.filter(d=>d.kind==="audioinput").length+" ta mikrofon":"");
+    // 2. ruxsat
+    set("perm","run","Brauzer ruxsat so'rasa — «Ruxsat berish» ni bosing."); S.micSt="wait";
+    if(!REC.live(S.exStream)){ try{ REC.stopStream(S.exStream); S.exStream=await REC.mic(); micWatch(S.exStream); }catch(x){ S.micSt="fail"; fail("perm",micErrText(x,await micDiag()),""); c.fix.push("Ruxsatni yoqing va qayta tekshiring."); return; } }
+    S.micSt="ok"; const tr=S.exStream.getAudioTracks()[0]; set("perm","ok",tr&&tr.label?tr.label:"Ruxsat berilgan");
+    // 3–4. 5 soniyalik sinov yozuvi
+    let h; try{ h=REC.start(S.exStream); }catch(x){ fail("rec","Brauzer ovoz yozishni qo'llamaydi.","«Moslik rejimi (WAV)» ni yoqing yoki boshqa brauzerdan foydalaning."); return; }
+    set("sig","run"); set("rec","run");
+    let peak=0, sum=0, n=0; const m=REC.meter(S.exStream,l=>{ peak=Math.max(peak,l); sum+=l; n++; const u=document.getElementById("mchkmeter"); if(u) u.style.width=Math.min(100,l*400)+"%"; });
+    c.count=5; draw();
+    await new Promise(r=>{ const id=setInterval(()=>{ c.count--; draw(); if(c.count<=0){ clearInterval(id); r(); } },1000); });
+    const r=await h.stop(); if(m) m.stop(); c.count=null;
+    if(!m) set("sig","warn","Ovoz darajasini o'lchab bo'lmadi (brauzer cheklovi).");
+    else if(peak<0.006){ fail("sig","Ovoz deyarli eshitilmadi.","Mikrofonga yaqinroq gapiring; telefon ovozi o'chirilmaganini va mikrofon teshigi yopilmaganini tekshiring."); }
+    else if(peak<0.02) set("sig","warn","Ovoz past. Mikrofonga yaqinroq gapiring.");
+    else set("sig","ok","Ovoz aniq eshitildi");
+    if(!r||!r.size||r.size<1000){ fail("rec","Yozuv bo'sh chiqdi.","Mikrofon kartasida «Moslik rejimi (WAV)» ni yoqib, qayta tekshiring."); return; }
+    const fmtName=/wav/.test(r.mime)?"WAV":/mp4|aac/.test(r.mime)?"MP4/AAC":/ogg/.test(r.mime)?"OGG/Opus":"WebM/Opus";
+    c.fmt=fmtName+" · "+Math.max(1,Math.round(r.size/1024))+" KB"; set("rec","ok",c.fmt);
+    // 5. qayta eshittirish
+    set("play","run"); c.url=r.url; draw();
+    const playable=await new Promise(res=>{ const a=new Audio(); let d=false; const fin=v=>{ if(!d){ d=true; res(v); } }; a.preload="metadata"; a.onloadedmetadata=()=>fin(true); a.oncanplay=()=>fin(true); a.onerror=()=>fin(false); setTimeout(()=>fin(null),4000); a.src=r.url; try{ a.load(); }catch(x){} });
+    if(playable===false){ fail("play","Brauzer bu yozuvni ijro eta olmadi.","«Moslik rejimi (WAV)» ni yoqing."); }
+    else set("play","ok","Yuqoridagi pleerda eshitib ko'ring — ovozingiz aniq eshitilishi kerak.");
+    // 6. internet
+    set("net","run");
+    if(navigator.onLine===false){ fail("net","Internet yo'q.","Internetga ulaning — javoblarni baholash uchun kerak (yozib olish internetsiz ham ishlaydi)."); }
+    else set("net","ok");
+    // 7. serverga audio yuborish
+    set("srv","run");
+    if(!LB.url) set("srv","warn","Server sozlanmagan.");
+    else if(navigator.onLine===false) fail("srv","Internet yo'q — tekshirib bo'lmadi.","");
+    else { try{ const b64=r.size<1500000?await blobB64(r.blob):""; const t0=Date.now(); const j=await tPost({action:"ping",b64},20000);
+        if(j&&j.ok) set("srv","ok","Server javob berdi ("+((Date.now()-t0)/1000).toFixed(1)+" s)");
+        else fail("srv","Server javob bermadi.","Birozdan keyin qayta tekshiring. Javoblaringiz baribir telefonda saqlanadi."); }
+      catch(x){ fail("srv","Serverga ulanib bo'lmadi.","Internetni tekshiring. Javoblaringiz baribir telefonda saqlanadi."); } }
+  } finally {
+    c.count=null; c.done=true; c.ok=!Object.values(c.st).some(x=>x.s==="fail"); if(c.ok) S.micChecked=Date.now();
+    S.mchkRun=false; draw();
+    const st=document.getElementById("micstat"); if(st&&!S.ex) renderExam();
+  }
 }
 document.addEventListener("change",ev=>{
   const t=ev.target; if(!t||!t.classList||!t.classList.contains("afile")||!S.ex) return;
@@ -1752,6 +1926,21 @@ async function histSave(e){
     const all=await HIST.all(); all.sort((a,b)=>b.ts-a.ts); for(const x of all.slice(12)) await HIST.del(x.id);
   }catch(x){}
 }
+/* Imtihon tugamasdan oldin ham har javob IndexedDB ga yoziladi: sahifa yangilansa yoki yopilsa javoblar yo'qolmaydi */
+async function histSavePartial(e){
+  if(!e||e.hist||!e.res.length) return;
+  try{ if(!e.hid) e.hid=Date.now();
+    await HIST.put({id:e.hid,ts:e.hid,lvl:e.lvl,partial:true,ev:null,res:e.res.map(r=>({q:r.q,secs:r.secs,limit:r.limit,part:r.part,text:r.text||"",warn:r.warn||"",ext:r.ext||"",size:r.size||0,blob:r.blob||null}))});
+  }catch(x){}
+}
+async function spPendingCheck(){
+  try{ const all=await HIST.all(); const p=all.filter(x=>x.partial&&Date.now()-x.ts<3*864e5&&!(S.ex&&S.ex.hid===x.id)).sort((a,b)=>b.ts-a.ts)[0];
+    S.spPending=p?{id:p.id,n:p.res.length,lvl:p.lvl,ts:p.ts}:null; }catch(x){ S.spPending=null; }
+  return S.spPending;
+}
+function spPendingHTML(){ const p=S.spPending; if(!p) return "";
+  return `<div class="warn" style="margin:0 0 10px"><b>Tugallanmagan imtihon topildi.</b> ${p.lvl==="MOCK"?"Og'zaki mock":esc(p.lvl)} · ${new Date(p.ts).toLocaleString()} · <b>${p.n}</b> ta javob saqlangan. Javoblarni ochib, AI bilan baholashingiz mumkin.
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="go" style="margin:0" data-act="sprecover" data-id="${p.id}">Javoblarni ochish ›</button><button class="go alt" style="margin:0" data-act="spdismiss" data-id="${p.id}">Yopish</button></div></div>`; }
 let histT=null, histE=null; function histSaveSoon(){ clearTimeout(histT); histE=S.ex; histT=setTimeout(()=>{ const e=histE; histE=null; if(e&&e.phase==="done") histSave(e); },800); }
 function histFlush(){ if(histE){ clearTimeout(histT); const e=histE; histE=null; if(e.phase==="done") histSave(e); } }
 async function openHist(id){
@@ -1839,7 +2028,7 @@ function sessionHTML(){
   else if(e.showText) txt=`<div class="exq ar" lang="ar">${u.t.map((t,k)=>`<div>${u.t.length>1?(k+1)+". ":""}${esc(t)}</div>`).join("")}</div>`;
   return `<div class="hero">${mock?mockSteps(e):""}<div class="kick">${kick}</div>
     <div class="ttl ar" lang="ar">${lab[1]}</div>
-    <p>${e.phase==="speak"?`<span class="rdot"></span>`:""}${lab[0]}${e.phase==="speak"&&!S.exStream?(micBlockedByFrame()?" · yozish ishlamayapti — natija ekranida telefon yozgichi bilan oling":" · mikrofon yo'q, faqat vaqt ketmoqda"):""}</p>
+    <p>${e.phase==="speak"?`<span class="rdot"></span>`:""}${lab[0]}${e.phase==="speak"&&S.exStream?" · 🎙️ Ovoz yozilmoqda":""}${e.phase==="speak"&&!S.exStream?(micBlockedByFrame()?" · yozish ishlamayapti — natija ekranida telefon yozgichi bilan oling":" · mikrofon yo'q, faqat vaqt ketmoqda"):""}</p>
     <div class="big ${e.phase==="speak"&&e.left<=10?"low":""}" id="exclock">${clock}</div>
     ${e.phase==="speak"?`<div class="meter"><u id="exmeter"></u></div><div class="note" id="exmwarn" style="color:#ffe08a" hidden>Ovoz eshitilmayapti — mikrofonga yaqinroq gapiring.</div>`:""}
     <div class="pbar"><u id="exbar" style="width:${e.total&&(e.phase==="prep"||e.phase==="speak")?100*(e.total-e.left)/e.total:0}%"></u></div>
@@ -1857,7 +2046,7 @@ function resultHTML(){
     <div class="hstats"><div><b>${ans}/${e.units.length}</b><span>javob berildi</span></div><div><b>${tot}</b><span>soniya gapirdingiz</span></div><div><b>${mock?"4 qism":e.lvl}</b><span>${mock?"mock":"daraja"}</span></div></div></div>
     ${(()=>{ const sc=(e.qc||e.ev)?spScore(e):null; return sc!=null?scoreHero(sc,"GAPIRISH · TAXMINIY BALL",e.ev?"AI baholashi asosida":"Tezkor tekshiruv asosida — aniqroq ball uchun AI tekshiruvidan foydalaning"):""; })()}
     ${S.fm&&!e.hist?`<div class="card"><h3>To'liq mock</h3><p class="note" style="margin:0 0 8px">Gapirish balli javob matnidan hisoblanadi. Matnni maydonlarga kiriting (yoki AI bilan tekshiring), so'ng yakuniy natijaga o'ting.</p><button class="go" data-act="fmspeak">Yakuniy natija ›</button></div>`:""}
-    ${quickHTML(e)}
+    ${e.ev&&e.ev.v2?"":quickHTML(e)}
     ${aiCardHTML(e)}
     ${e.ev?evalHTML(e.ev,e):""}
     <div class="card"><h3>Savollar, yozuvlar va matn</h3>
@@ -1865,6 +2054,7 @@ function resultHTML(){
         <small>${mock?"Qism "+r.part+" · ":""}${r.secs} s / ${r.limit} s</small>
         ${r.url?`<audio controls src="${r.url}"></audio><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px"><a class="dl" href="${r.url}" download="gapir-${String(e.lvl).toLowerCase()}-${i+1}.${r.ext||"webm"}">⬇ Yuklab olish</a><small>${Math.max(1,Math.round(r.size/1024))} KB</small></div>${r.warn?`<div class="note" style="color:var(--danger)">${r.warn}</div>`:""}`:`<div class="note" style="color:var(--danger)">Yozuv saqlanmadi. ${esc(micMsg()||"Mikrofonga ruxsat berib, qayta urinib ko'ring yoki pastdagi tugma bilan yozuv qo'shing.")}</div>`}
         ${(!r.url||r.warn||micProblem())?`<div class="attach" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><label class="dl">🎙 Telefon yozgichi<input class="afile" type="file" accept="audio/*" capture data-ri="${i}" hidden></label><label class="dl">📁 Fayldan tanlash<input class="afile" type="file" accept="audio/*" data-ri="${i}" hidden></label></div>`:""}
+        ${sttInfoHTML(r)}
         <textarea class="tx" data-ri="${i}" lang="ar" dir="rtl" rows="3" placeholder="Javob matni — avtomatik olinadi yoki o'zingiz yozing / tuzating">${esc(r.text||"")}</textarea></div></div>`).join("")}</div>
     <p class="note" style="margin:12px 4px 0">${TG.on?"Yozuvlar avtomatik «Natijalar» bo'limida saqlanadi (oxirgi 12 ta imtihon). Telegram ichida «Yuklab olish» ishlamasa, natijani shu yerdan tinglang.":"Yozuvlar «Natijalar» bo'limida ham saqlanadi (oxirgi 12 ta). Kerakligini «Yuklab olish» bilan alohida saqlab qo'ying."}</p>
     ${e.hist?`<button class="go alt" data-act="hist">‹ Tarixga qaytish</button>`:`<button class="go" data-act="exagain">${mock?"Yangi mock ›":`Yana mashq qilish (${e.lvl}) ›`}</button>
@@ -1911,7 +2101,7 @@ function buildMock(){
   return u;
 }
 function mockIntroHTML(){
-  return `<div class="hero"><div class="kick">GAPIR · TO'LIQ MOCK</div>
+  return `${spPendingHTML()}<div class="hero"><div class="kick">GAPIR · TO'LIQ MOCK</div>
       <div class="ttl ar" lang="ar">الاختبار الشفهي</div>
       <p>CEFR og'zaki imtihoni kabi · 4 qism ketma-ket · natija rasmiy emas</p>
       <div class="hstats"><div><b>10</b><span>savol</span></div><div><b>~12</b><span>daqiqa</span></div><div><b>4</b><span>qism</span></div></div></div>
@@ -1926,6 +2116,7 @@ function mockIntroHTML(){
 }
 function renderMock(){
   stopTimer(); stopRec(); S.mockMode=true; S.topic=null; S.view="";
+  spPendingCheck().then(p=>{ if(p&&S.mockMode&&!S.ex&&!document.querySelector('[data-act="sprecover"]')) renderExam(); });
   $app.innerHTML=header()+`<div class="back"><button class="ghost" data-act="${S.fm||!S.spList?"home":"speak"}">‹ ${S.fm||!S.spList?"Bosh sahifa":"Gapirish bo'limi"}</button></div>
     ${S.fm?`<div class="warn" style="margin:0 0 10px">To'liq mock · 4/4 bo'lim: Gapirish (~15 daqiqa). Tugagach «Yakuniy natija» tugmasini bosing.</div>${planHTML("speaking",true)}`:""}
     <div class="thead"><span class="lvl" style="color:#e60023;font-size:1.2rem">Og'zaki mock · CEFR</span><small>1.1 → 1.2 → 2 → 3 · ~12 daqiqa</small></div>
@@ -1950,6 +2141,7 @@ async function exStart(){
   wakeOn();
   if(!S.exStream) try{ S.exStream=await REC.mic(); }
   catch(x){ S.exStream=null; toast("Mikrofonga ruxsat yo'q — faqat vaqt ishlaydi"); }
+  if(S.exStream) micWatch(S.exStream);
   if(!S.ex) return;
   exBegin();
 }
@@ -1988,18 +2180,19 @@ function exPrep(){
 function exSpeak(){
   const e=S.ex; if(!e) return; e.tok++; stopTimer(); ttsStop();
   const total=e.units[e.i].sp;
-  e.phase="speak"; e.limit=total; e.h=null; e.sr=null; e.peak=0; e.t0=Date.now(); e.meter=null; beep(); renderExam();
+  e.phase="speak"; e.limit=total; e.h=null; e.sr=null; e.peak=0; e.t0=Date.now(); e.meter=null; e.segs=[]; e.micDown=false; beep(); renderExam();
+  e.meterCb=l=>{
+    e.peak=Math.max(e.peak,l);
+    const m=document.getElementById("exmeter"); if(m) m.style.width=Math.min(100,l*400)+"%";
+    const w=document.getElementById("exmwarn"); if(w&&!e.micDown&&!e.reconnecting&&!/qayta ulandi/.test(w.textContent)){ const low=e.meter&&e.meter.running()&&Date.now()-e.t0>5000&&e.peak<0.006; w.hidden=!low; if(low) w.textContent="Ovoz eshitilmayapti — mikrofonga yaqinroq gapiring."; }
+  };
   e.startP=(async()=>{
-    if(!REC.live(S.exStream)){ REC.stopStream(S.exStream); try{ S.exStream=await REC.mic(); }catch(x){ S.exStream=null; } }
+    if(!REC.live(S.exStream)){ REC.stopStream(S.exStream); try{ S.exStream=await REC.mic(); micWatch(S.exStream); }catch(x){ S.exStream=null; } }
     REC.unlock();
     if(S.ex!==e||e.phase!=="speak"||!S.exStream) return;
     try{
       e.h=REC.start(S.exStream);
-      e.meter=REC.meter(S.exStream,l=>{
-        e.peak=Math.max(e.peak,l);
-        const m=document.getElementById("exmeter"); if(m) m.style.width=Math.min(100,l*400)+"%";
-        const w=document.getElementById("exmwarn"); if(w) w.hidden=!(e.meter&&e.meter.running()&&Date.now()-e.t0>5000&&e.peak<0.006);
-      });
+      e.meter=REC.meter(S.exStream,e.meterCb);
     }catch(x){ e.h=null; }
     if(SRX.on()&&S.ex===e&&e.phase==="speak") e.sr=SRX.start();
   })();
@@ -2009,7 +2202,9 @@ function exEndSpeak(){
   const e=S.ex; if(!e||e.phase!=="speak") return;
   stopTimer(); e.spoken=Math.max(0,e.total-e.left); e.phase="saving"; renderExam();
   e.meterOk=!!(e.meter&&e.meter.running()); if(e.meter){ e.meter.stop(); e.meter=null; }
-  Promise.resolve(e.startP).then(()=>{ if(e.sr) e.sr.halt(); return e.h?e.h.stop():null; }).catch(()=>null)
+  const waitRc=()=>new Promise(res=>{ const t0=Date.now(); const k=()=>!e.reconnecting||Date.now()-t0>4000?res():setTimeout(k,100); k(); });
+  Promise.resolve(e.startP).then(waitRc).then(()=>{ if(e.sr) e.sr.halt(); return e.h?e.h.stop():null; }).catch(()=>null)
+    .then(async r=>{ if(e.segs&&e.segs.length){ try{ const m=await mergeAudio(e.segs.concat(r?[r]:[])); if(m) return m; }catch(x){} } return r; })
     .then(r=>new Promise(res=>setTimeout(()=>res(r),e.sr?700:0))).then(r=>exSaved(e,r));
 }
 function exSaved(e,r){
@@ -2017,7 +2212,10 @@ function exSaved(e,r){
   const u=e.units[e.i];
   let warn="";
   if(r&&(r.size<2000||(e.meterOk&&e.peak<0.006))) warn="Ovoz juda past eshitilgan — mikrofonga yaqinroq gapiring yoki sozlamalarni tekshiring.";
+  if(!r) warn=warn||(S.exStream?"Audio yozilmadi (brauzer yozuvni bermadi). Mikrofon kartasida «Moslik rejimi (WAV)» ni yoqing yoki shu yerda «🎙 Telefon yozgichi» bilan qo'shing.":"Mikrofon ishlamadi — javob yozilmadi.");
+  if(e.micLost) warn=(warn?warn+" ":"")+"Javob paytida mikrofon "+e.micLost+" marta uzildi"+(r&&r.merged>1?" — qismlar birlashtirildi.":".");
   e.res.push({q:u.t,url:r?r.url:null,size:r?r.size:0,ext:r?r.ext:"",secs:e.spoken,limit:e.limit,part:u.part,warn,text:e.sr?e.sr.get():"",blob:r?r.blob:null});
+  e.micLost=0; histSavePartial(e);
   if(e.spoken>=3) u.t.forEach(q=>setDone(u.topic,q,true));
   e.i++;
   if(e.i<e.units.length) exBegin(); else exFinish();
@@ -2114,6 +2312,7 @@ document.addEventListener("click",e=>{
     case "resopen": S.mxAll=false; renderResDetail(+t.dataset.id); break;
     case "mxall": S.mxAll=!S.mxAll; if(S.view==="resdetail") renderResDetail(S.resId); else if(S.view==="tresult"&&S.tx) renderTestResult(); break;
     case "histopen": openHist(+t.dataset.id); break;
+    case "sprecover": case "spdismiss": { const id=+t.dataset.id; S.spPending=null; HIST.all().then(a=>{ const x=a.find(z=>z.id===id); if(x){ x.partial=false; x.recovered=true; return HIST.put(x); } }).catch(()=>{}).then(()=>{ if(t.dataset.act==="sprecover") openHist(id); else { const b=t.closest(".warn"); if(b) b.remove(); } }); break; }
     case "histdel": HIST.del(+t.dataset.id).then(()=>S.view==="myres"?renderMyRes():renderAdmin("results")).catch(()=>{}); break;
     case "micon": micToggle(); break;
     case "mictest": micTest(); break;
@@ -2121,7 +2320,7 @@ document.addEventListener("click",e=>{
     case "tgpost": tgSetup("post"); break;
     case "aicopy": { const [ce,rr]=ctxOf(t); aiCopy(ce,rr); break; }
     case "aieval": { const [ce,rr]=ctxOf(t); aiEvaluate(ce,rr); break; }
-    case "sttgo": { const [ce,rr]=ctxOf(t); (ce&&ce.res||[]).forEach(r=>{ if(!String(r.text||"").trim()) r.sttTried=false; }); sttFill(ce,rr); break; }
+    case "sttgo": { const [ce,rr]=ctxOf(t); (ce&&ce.res||[]).forEach(r=>{ if(!String(r.text||"").trim()||!r.stt) r.sttTried=false; }); sttFill(ce,rr); break; }
     case "qcheck": { const [ce,rr]=ctxOf(t); if(ce){ ce.qc=true; rr(); spSendOnce(ce); } break; }
     case "aiset": if(S.admin) openAI(); else { toast("AI sozlamalari admin panelida"); renderAdmin("settings"); } break;
     case "mock": renderMock(); break;
@@ -3248,6 +3447,7 @@ function wrTasks(ev,e){
 }
 function aiScore75(ev,e){
   if(!ev||ev.insufficient) return null;
+  if(ev.v2) return ev.score100==null?null:Math.max(0,Math.min(75,Math.round(ev.score100*0.75)));
   if(e&&e.kind==="writing"){ const wt=wrTasks(ev,e); if(wt){ ev.wtasks=wt;
     const tw=wt.reduce((a,t)=>a+t.max,0)||1; ev.criteria={}; WCRIT.forEach(c=>{ ev.criteria[c[0]]={score:Math.round(wt.reduce((a,t)=>a+t.crit[c[0]].score*t.max,0)/tw*10)/10,note:wt.length===1?wt[0].crit[c[0]].note:""}; });
     return Math.max(0,Math.min(75,Math.round(wt.reduce((a,t)=>a+t.pts,0)))); } }
@@ -3260,16 +3460,51 @@ function aiMerge(a,b){
   if(!a||a.insufficient) return b||a; if(!b||b.insufficient) return a;
   const out=JSON.parse(JSON.stringify(a)); out.criteria={};
   const keys=new Set(Object.keys(a.criteria||{}).concat(Object.keys(b.criteria||{})));
-  keys.forEach(k=>{ const x=(a.criteria||{})[k]||{}, y=(b.criteria||{})[k]||{}; const xs=+x.score, ys=+y.score;
+  let dsum=0, dn=0;
+  keys.forEach(k=>{ const x=(a.criteria||{})[k]||{}, y=(b.criteria||{})[k]||{}; const xs=+x.score, ys=+y.score; if(!isNaN(xs)&&!isNaN(ys)){ dsum+=Math.abs(xs-ys); dn++; }
     const sc=isNaN(xs)?ys:isNaN(ys)?xs:Math.round((xs+ys)/2*10)/10; out.criteria[k]={score:sc,note:x.note||y.note||""}; });
+  out.diff=dn?Math.round(dsum/dn*10)/10:0; out.runs=2;
   if(Array.isArray(a.tasks)&&Array.isArray(b.tasks)){ out.tasks=a.tasks.map((t,i)=>{ const u=b.tasks.find(z=>+z.answer===+t.answer)||b.tasks[i]||{}; const o={answer:t.answer};
     WAI.forEach(k=>{ const x=t[k]||{}, y=u[k]||{}, xs=+x.score, ys=+y.score; o[k]={score:isNaN(xs)?ys:isNaN(ys)?xs:(xs+ys)/2,note:x.note||y.note||""}; }); return o; }); }
   else if(!Array.isArray(a.tasks)&&Array.isArray(b.tasks)) out.tasks=b.tasks;
   const seen=new Set(); out.mistakes=(a.mistakes||[]).concat(b.mistakes||[]).filter(m=>{ const k=String(m.said||"").replace(/\s+/g," ").trim(); if(!k||seen.has(k)) return false; seen.add(k); return true; }).slice(0,12);
   return out;
 }
+/* Gapirish: yakuniy mezonlar — talaffuz audio asosida (server), ravonlik o'lchov + AI, ishonchlilik */
+function spWpmScore(wpm){ for(const [t,v] of SP_RUBRIC.wpm) if(wpm>=t) return v; return 1; }
+function spFinalize(ev,e){
+  const cr=ev.criteria=ev.criteria||{}, res=e.res||[];
+  const W=r=>arWords(r.text).length;
+  // talaffuz: faqat audio bor va baholangan javoblar (matndan baholanmaydi)
+  const pr=res.filter(r=>r.blob&&r.stt&&r.stt.pron!=null&&W(r)>0);
+  if(pr.length){ const tw=pr.reduce((a,r)=>a+Math.max(1,W(r)),0); const v=pr.reduce((a,r)=>a+r.stt.pron*Math.max(1,W(r)),0)/tw;
+    const notes=[]; pr.forEach(r=>(r.stt.notes||[]).forEach(n=>notes.push(n)));
+    cr.talaffuz={score:Math.round(v*10)/10,note:notes.length?"":"Talaffuz audio asosida baholandi."}; }
+  else cr.talaffuz={score:null,note:res.some(r=>r.blob)?"Audio sifati past yoki tahlil qilinmadi — talaffuz baholanmadi.":"Ovozli yozuv yo'q (javob yozma kiritilgan) — talaffuz baholanmadi."};
+  // ravonlik: o'lchangan tezlik va pauzalar + AI bahosi
+  const au=res.filter(r=>r.blob&&W(r)>0&&((r.flu&&r.flu.dur)||r.secs)>=3);
+  if(au.length){ const words=au.reduce((a,r)=>a+W(r),0), dur=au.reduce((a,r)=>a+((r.flu&&r.flu.dur)||r.secs),0), pz=au.reduce((a,r)=>a+(r.flu?r.flu.pauses:0),0);
+    const wpm=Math.round(words/(dur/60)), ppm=pz/(dur/60);
+    let m=spWpmScore(wpm); if(ppm>4) m-=2; else if(ppm>2) m-=1; m=Math.max(0,m);
+    const ai=cr.ravonlik&&cr.ravonlik.score!=null&&!isNaN(+cr.ravonlik.score)?+cr.ravonlik.score:null;
+    cr.ravonlik={score:ai==null?m:Math.round((ai+m)/2*10)/10,note:(cr.ravonlik&&cr.ravonlik.note?cr.ravonlik.note+" ":"")+"O'lchov: "+wpm+" so'z/daqiqa, "+pz+" ta uzun pauza."};
+    ev.flu={wpm,pauses:pz}; }
+  // ishonchlilik
+  const withA=res.filter(r=>r.blob), poor=withA.filter(r=>r.stt&&(r.stt.quality==="poor"||r.stt.quality==="silent")).length;
+  const words=res.reduce((a,r)=>a+W(r),0), unclear=res.reduce((a,r)=>a+((r.stt&&r.stt.unclear)||[]).length,0);
+  const poorShare=withA.length?poor/withA.length:0, uRatio=words?unclear/words:0;
+  ev.reRecord=withA.length>0&&poorShare>=SP_RUBRIC.poorShare;
+  ev.conf=ev.reRecord||words<SP_RUBRIC.minWords?"past":(poor>0||uRatio>0.08||words<40||(ev.diff||0)>1.5||(ev.runs||1)<2)?"o'rta":"yuqori";
+  ev.confWhy=[]; if(poor) ev.confWhy.push(poor+" ta javobda audio sifati past"); if(uRatio>0.08) ev.confWhy.push("noaniq eshitilgan so'zlar ko'p ("+Math.round(uRatio*100)+"%)");
+  if(words<40) ev.confWhy.push("javob matni qisqa ("+words+" so'z)"); if((ev.diff||0)>1.5) ev.confWhy.push("ikki mustaqil baho bir-biridan farq qildi"); if((ev.runs||1)<2) ev.confWhy.push("faqat bitta AI bahosi olindi");
+  // umumiy 0–100
+  let sw=0, sv=0; CRIT.forEach(c=>{ const x=cr[c[0]]; const w=SP_RUBRIC.weight[c[0]]||0; if(x&&x.score!=null&&!isNaN(+x.score)&&w){ sw+=w; sv+=w*Math.max(0,Math.min(10,+x.score)); } });
+  ev.score100=ev.reRecord||!sw?null:Math.max(0,Math.min(100,Math.round(sv/sw*10*aiDone(e))));
+  ev.v2=true;
+  return ev;
+}
 function spScore(e){
-  if(e.ev&&!e.ev.insufficient) return aiScore75(e.ev,e);
+  if(e.ev&&!e.ev.insufficient){ const v=aiScore75(e.ev,e); if(v!=null||e.ev.reRecord) return v; }
   const q=quickCheck(e); if(q.insufficient) return null;
   const answered=q.per.filter(p=>p.words>=3).length/Math.max(1,e.res.length);
   let sc=Math.round((20+5*q.pts)*(0.3+0.7*answered));
