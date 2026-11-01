@@ -2,10 +2,14 @@
 <html lang="uz">
 <head>
 <meta charset="utf-8">
-<meta name="theme-color" content="#168A2D">
+<meta name="theme-color" content="#07140E">
+<meta name="description" content="NUTQON — arab tili CEFR imtihoniga tayyorlov: o'qish, tinglash, gapirish va yozish bo'yicha mock testlar.">
+<meta property="og:title" content="NUTQON — arab tili CEFR">
+<meta property="og:description" content="Arab tili CEFR (B1–C1) mock imtihonlari: o'qish, tinglash, gapirish, yozish.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230F5132'/%3E%3Ctext x='32' y='45' font-family='Arial,sans-serif' font-size='38' font-weight='800' text-anchor='middle' fill='%23C9A227'%3EN%3C/text%3E%3C/svg%3E">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Qalam — arab tili CEFR</title>
+<title>NUTQON — arab tili CEFR</title>
 <script async src="https://telegram.org/js/telegram-web-app.js?59" onload="window.tgReady&&window.tgReady()"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,25 +18,25 @@
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
-  --bg:#F2F7F3; --panel:#FFFFFF; --ink:#0F1F17; --muted:#5B6B62; --line:#DCE7E0;
-  --accent:#168A2D; --accent-ink:#FFFFFF; --soft:#E5F3E8; --brand:#E60023;
-  --beg:#168A2D; --mid:#B26A00; --adv:#7A3E8E;
+  --bg:#F6F0E1; --panel:#FFFDF7; --ink:#10241A; --muted:#5F6B5F; --line:#E5DAC0;
+  --accent:#0F5132; --accent-ink:#FFFFFF; --soft:#EFE5CC; --brand:#B8901A; --gold:#C9A227; --cream:#F3E9D2;
+  --beg:#0F5132; --mid:#A06A00; --adv:#7A3E8E;
   --danger:#B3261E;
-  --sh:0 1px 2px rgba(15,40,25,.06),0 8px 24px rgba(15,40,25,.06);
+  --sh:0 1px 2px rgba(15,40,25,.06),0 10px 28px rgba(15,40,25,.07);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0C1611; --panel:#14231B; --ink:#E8F1EB; --muted:#9DB2A5; --line:#25392D;
-    --accent:#3FD35C; --accent-ink:#062010; --soft:#173324; --brand:#FF4D63;
-    --beg:#4FD36E; --mid:#F0AE4E; --adv:#C58BD6; --danger:#F2867F;
-    --sh:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.28);
+    --bg:#07140E; --panel:#0E2219; --ink:#F3E9D2; --muted:#A3B3A2; --line:#1E3A2B;
+    --accent:#3DBE7A; --accent-ink:#04140C; --soft:#13301F; --brand:#D9B441; --gold:#D9B441; --cream:#F3E9D2;
+    --beg:#4FD38A; --mid:#F0AE4E; --adv:#C58BD6; --danger:#F2867F;
+    --sh:0 1px 2px rgba(0,0,0,.35),0 10px 28px rgba(0,0,0,.3);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0C1611; --panel:#14231B; --ink:#E8F1EB; --muted:#9DB2A5; --line:#25392D;
-  --accent:#3FD35C; --accent-ink:#062010; --soft:#173324; --brand:#FF4D63;
-  --beg:#4FD36E; --mid:#F0AE4E; --adv:#C58BD6; --danger:#F2867F;
-  --sh:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.28);
+  --bg:#07140E; --panel:#0E2219; --ink:#F3E9D2; --muted:#A3B3A2; --line:#1E3A2B;
+  --accent:#3DBE7A; --accent-ink:#04140C; --soft:#13301F; --brand:#D9B441; --gold:#D9B441; --cream:#F3E9D2;
+  --beg:#4FD38A; --mid:#F0AE4E; --adv:#C58BD6; --danger:#F2867F;
+  --sh:0 1px 2px rgba(0,0,0,.35),0 10px 28px rgba(0,0,0,.3);
 }
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:border-box}
@@ -282,15 +286,16 @@ dialog::backdrop{background:rgba(8,16,22,.55);-webkit-backdrop-filter:blur(3px);
 .skr .nm{flex:1;font-size:1.25rem;font-weight:800;letter-spacing:-.01em;display:flex;flex-direction:column}.skr .nm small{font-size:.8rem;font-weight:600;opacity:.85}
 .skr .bd{flex:none;font-size:.78rem;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--accent);position:relative;z-index:1}
 .skr .wm{position:absolute;right:-10px;bottom:-16px;opacity:.12;transform:scale(2.6);transform-origin:bottom right;pointer-events:none}
-.sk-reading{background:linear-gradient(120deg,#0f4d24,#1d7a3a);color:#fff;border-color:transparent}
-.sk-listening{background:linear-gradient(120deg,#3fd35c,#2fb52a);color:#06210c;border-color:transparent}
-.sk-speaking{background:linear-gradient(120deg,#155e75,#0e7490);color:#fff;border-color:transparent}
-.sk-writing{background:linear-gradient(120deg,#7a3e8e,#9d4fb5);color:#fff;border-color:transparent}
-.sk-full{background:linear-gradient(135deg,#ff3b57,#e60023 55%,#b8001c);color:#fff;border-color:transparent}
+.sk-reading{background:linear-gradient(120deg,#0B3D26,#0F5132 55%,#16714A);color:#fff;border-color:transparent}
+.sk-listening{background:linear-gradient(120deg,#7CC8EE,#4AA9DD);color:#06223a;border-color:transparent}
+.sk-speaking{background:linear-gradient(120deg,#163E8C,#2459C4);color:#fff;border-color:transparent}
+.sk-writing{background:linear-gradient(120deg,#8E1F2F,#C0394B);color:#fff;border-color:transparent}
+.sk-full{background:linear-gradient(135deg,#E3C05A,#C9A227 55%,#9E7C12);color:#1B1405;border-color:transparent}
 .sk-reading .ic,.sk-speaking .ic,.sk-writing .ic,.sk-full .ic{background:rgba(255,255,255,.16);color:#fff}
-.sk-listening .ic{background:rgba(0,0,0,.1);color:#06210c}
+.sk-listening .ic{background:rgba(255,255,255,.35);color:#06223a}
 .sk-reading .bd,.sk-speaking .bd,.sk-writing .bd,.sk-full .bd{background:rgba(255,255,255,.2);color:#fff}
-.sk-listening .bd{background:rgba(0,0,0,.14);color:#06210c}
+.sk-listening .bd{background:rgba(255,255,255,.4);color:#06223a}
+.sk-full .ic,.sk-full .bd{background:rgba(0,0,0,.12)!important;color:#1B1405!important}
 .hubbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.hubbtns .histbtn{margin:0;display:flex;align-items:center;gap:8px;justify-content:center}
 /* reyting */
 .lbf{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -397,6 +402,34 @@ body.pkopen{overflow:hidden}
 .tgback .back{display:none}
 .tg .top{position:static}
 .tg .tgonly-hide{display:none}
+.nlogo{font-family:Manrope,sans-serif;font-weight:800;font-size:1.45rem;letter-spacing:.14em;background:linear-gradient(120deg,var(--gold),#E9CF7A 45%,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+:root[data-theme="light"] .top .nlogo{background:linear-gradient(120deg,#8A6A0C,#B8901A 50%,#8A6A0C);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ntop{display:none;gap:4px;align-items:center}
+.ntop button,.ntop a{border:0;background:none;color:var(--muted);font-weight:700;font-size:.88rem;padding:8px 10px;border-radius:10px;text-decoration:none;white-space:nowrap}
+.ntop .on{color:var(--accent);background:var(--soft)}
+#bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--panel) 92%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}
+#bnav button,#bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:var(--muted);font-size:.66rem;font-weight:700;padding:4px 2px;border-radius:12px;text-decoration:none;line-height:1.1;text-align:center}
+#bnav svg{width:22px;height:22px}
+#bnav .on{color:var(--accent);background:var(--soft)}
+#bnav[hidden]{display:none}
+body.hasnav .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+@media(min-width:900px){ #bnav{display:none!important} .ntop{display:flex} body.hasnav .wrap{padding-bottom:64px} .wrap{max-width:980px} }
+.lhero{position:relative;overflow:hidden;border-radius:26px;padding:34px 22px 26px;background:radial-gradient(600px 260px at 85% -20%,color-mix(in srgb,var(--gold) 35%,transparent),transparent 70%),linear-gradient(150deg,#0B3D26,#0F5132 60%,#13603C);color:#F3E9D2;box-shadow:var(--sh)}
+.lhero .nlogo{font-size:2.6rem;letter-spacing:.18em}
+.lhero h2{margin:10px 0 6px;font-size:1.35rem;color:#fff}.lhero p{margin:0;opacity:.9}
+.lhero .go{margin-top:18px;background:var(--gold);color:#1B1405;border-color:var(--gold)}
+.lfeat{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+@media(min-width:700px){.lfeat{grid-template-columns:repeat(4,1fr)}}
+.lfeat div{padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--sh)}
+.lfeat b{display:block;margin:6px 0 2px}.lfeat small{color:var(--muted)}
+.lock{text-align:center;padding:30px 20px;border-radius:24px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--sh);margin-top:12px}
+.lock .big{font-size:3rem;line-height:1}.lock h2{margin:12px 0 8px;font-size:1.25rem}
+.lock .go{max-width:420px;margin-left:auto;margin-right:auto}
+.lock .msg{margin:12px auto 0;max-width:460px;padding:10px 12px;border-radius:12px;font-weight:600}
+.lock .msg.bad{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.lock .msg.ok{background:var(--soft);color:var(--accent)}
+.pfrow{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.pfrow:last-child{border:0}
+.pfrow small{display:block;color:var(--muted)}
 .hdr-r{display:flex;gap:8px;align-items:center}
 .icb{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;font-size:1.1rem;padding:0;text-decoration:none;color:var(--ink)}
 .icb:hover{border-color:var(--accent)}
@@ -421,7 +454,7 @@ body.pkopen{overflow:hidden}
 .mhero{position:relative;overflow:hidden;border-radius:24px;padding:18px;color:#fff;background:radial-gradient(120% 140% at 100% 0%,#2fb52a 0%,#1d7a3a 38%,#0b3a1b 100%);box-shadow:0 14px 30px rgba(15,77,36,.28)}
 .mhero.low{background:radial-gradient(120% 140% at 100% 0%,#ff6b4a 0%,#d4352a 40%,#7a0f12 100%);box-shadow:0 14px 30px rgba(180,30,20,.25)}
 .mhero.empty{background:radial-gradient(120% 140% at 100% 0%,#3fd35c 0%,#168a2d 45%,#0b3a1b 100%)}
-.mhero::after{content:"قلم";position:absolute;right:-6px;bottom:-34px;font-family:"Noto Naskh Arabic",serif;font-size:7rem;opacity:.07;pointer-events:none}
+.mhero::after{content:"NUTQON";font-family:Manrope,sans-serif!important;font-weight:800;font-size:4.5rem!important;position:absolute;right:-6px;bottom:-34px;font-family:"Noto Naskh Arabic",serif;font-size:7rem;opacity:.07;pointer-events:none}
 .mhtop{display:flex;align-items:center;gap:16px}
 .mhring{position:relative;flex:none;width:108px;height:108px}.mhring>div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.mhring b{font-size:2.1rem;font-weight:800;line-height:1}.mhring small{opacity:.8;font-size:.8rem;font-weight:700}
 .mhtx{min-width:0;display:flex;flex-direction:column;gap:2px}.mkick{font-size:.68rem;font-weight:800;letter-spacing:.1em;opacity:.85}
@@ -1465,6 +1498,8 @@ async function aiRun(e){
     catch(x){ throw new Error(x&&x.name==="AbortError"?"Javob kech keldi. Qayta urinib ko'ring.":"Internetga ulanib bo'lmadi. Qayta urinib ko'ring."); }
     if(!j||!j.ok){ const er=j&&j.err;
       if(er==="nokey") throw new Error("AI tekshiruvi hali yoqilmagan (o'qituvchi sozlashi kerak).");
+      if(er==="sub"||er==="auth"){ setTimeout(subDenied,0); throw new Error("AI tekshiruvi faqat @nutqon kanali a'zolari uchun. Kanalga a'zo bo'ling va a'zolikni tekshiring."); }
+      if(er==="subtg") throw new Error("A'zolikni tekshirib bo'lmadi (Telegram vaqtincha javob bermadi). Birozdan keyin qayta urinib ko'ring.");
       if(er==="daylimit") throw new Error("Bugungi AI tekshiruvlar soni tugadi ("+(j.limit||15)+" ta). Ertaga yana tekshira olasiz.");
       if(er==="busy") throw new Error("Hozir AI band — ko'p o'quvchi tekshiryapti. 1 daqiqadan keyin qayta bosing.");
       throw new Error("AI xatosi"+(er?" ("+er+(j.code?" "+j.code:"")+")":"")+". Qayta urinib ko'ring."); }
@@ -1862,8 +1897,28 @@ async function renderMyRes(){
   window.scrollTo(0,0);
   const html=await adminResultsHTML(); const el=document.getElementById("myres"); if(el&&S.view==="myres") el.innerHTML=html;
 }
+async function chAdmin(save){
+  const box=document.getElementById("chbox"); if(!box) return;
+  const k=tkey(); if(!k){ box.innerHTML=`<p class="note" style="margin:0">Avval «O'quvchilar» bo'limida o'qituvchi paroli bilan kiring — kanal sozlamalari server kaliti bilan himoyalangan.</p>`; return; }
+  const o={action:save?"chset":"chget",key:k};
+  if(save){ const c=document.getElementById("chid"), u=document.getElementById("churl"), on=document.getElementById("chon"); o.channel=c.value.trim(); o.url=u.value.trim(); o.on=!!on.checked; }
+  box.innerHTML=`<p class="note">Yuklanmoqda…</p>`;
+  let j=null; try{ j=await tPost(o,30000); }catch(e){}
+  if(!j||!j.ok){ box.innerHTML=`<div class="warn" style="margin:0 0 8px">${j&&j.err==="notadmin"?"Majburiy obunani yoqib bo'lmadi: bot kanalda administrator emas. Kanal → Administratorlar → @"+BOT_USER+" ni qo'shing, so'ng qayta saqlang.":j&&j.err==="denied"?"O'qituvchi kaliti noto'g'ri — qayta kiring.":j&&j.err==="bad"?"Kanal manzili noto'g'ri. Masalan: @nutqon yoki -1001234567890":"Server bilan bog'lanib bo'lmadi."}</div><button class="go alt" data-act="chload">↻ Qayta yuklash</button>`; if(!(j&&j.st)) return; }
+  const d=j&&j.ok?j:{channel:o.channel,url:o.url,on:false,st:j.st,users:0}, st=d.st||{};
+  box.innerHTML=`<div class="pfrow"><span><b>Kanal</b><small>${st.found?"✅ topildi: "+esc(st.title||"")+(st.chatId?" ("+st.chatId+")":""):"❌ topilmadi"+(st.botStatus?" — "+esc(st.botStatus):"")}</small></span></div>
+    <div class="pfrow"><span><b>Bot holati kanalda</b><small>${esc(st.bot||"")} — ${st.botAdmin?"✅ administrator":"❌ administrator emas"+(st.botStatus&&st.found?" ("+esc(st.botStatus)+")":"")}</small></span></div>
+    <div class="pfrow"><span><b>Majburiy obuna</b><small>${d.on?"🟢 Yoqilgan":"⚪ O'chiq"} · zaxirasi bor foydalanuvchilar: ${d.users||0}</small></span></div>
+    <label class="note" for="chid">Kanal (@username yoki -100… ID)</label><input id="chid" class="inp" value="${esc(d.channel||"@nutqon")}">
+    <label class="note" for="churl">Kanal havolasi</label><input id="churl" class="inp" value="${esc(d.url||CH_URL_DEF)}">
+    <label class="note" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="chon" ${d.on?"checked":""}> Majburiy obunani yoqish (bot kanalda admin bo'lishi shart)</label>
+    <button class="go" data-act="chsave">Saqlash</button><button class="go alt" data-act="chload">↻ Holatni yangilash</button>`;
+  if(save&&j&&j.ok){ toast("Saqlandi"); subRefresh(true); }
+}
 function adminSettingsHTML(){
-  return `<div class="acts" style="margin-top:0">
+  setTimeout(()=>chAdmin(false),50);
+  return `<div class="card"><h3>📢 Telegram kanal va majburiy obuna</h3><div id="chbox"><p class="note">Yuklanmoqda…</p></div></div>
+  <div class="acts" style="margin-top:0">
       <button class="ghost" data-act="aiset">🧠 AI baholash<small>${AI.key?"API kalit kiritilgan":"API kalit kiritilmagan"} · ${esc(AI.model||"")}</small></button>
       <button class="ghost" data-act="voice">🔊 Ovoz sozlamalari<small>Savollarni o'qish ovozi va tezligi</small></button>
       <button class="ghost" data-act="backup">💾 Zaxira va tiklash<small>Savollar va belgilarni saqlash</small></button>
@@ -2334,6 +2389,16 @@ document.addEventListener("click",e=>{
     case "sprecover": case "spdismiss": { const id=+t.dataset.id; S.spPending=null; HIST.all().then(a=>{ const x=a.find(z=>z.id===id); if(x){ x.partial=false; x.recovered=true; return HIST.put(x); } }).catch(()=>{}).then(()=>{ if(t.dataset.act==="sprecover") openHist(id); else { const b=t.closest(".warn"); if(b) b.remove(); } }); break; }
     case "histdel": HIST.del(+t.dataset.id).then(()=>S.view==="myres"?renderMyRes():renderAdmin("results")).catch(()=>{}); break;
     case "micon": micToggle(); break;
+    case "nav-home": renderLanding(); break;
+    case "nav-cefr": if((S.tx&&!S.tx.done)||(S.fm&&!S.fm.saved)) break; S.homeTab="full"; renderHome(); break;
+    case "nav-prac": if((S.tx&&!S.tx.done)||(S.fm&&!S.fm.saved)) break; S.homeTab="parts"; renderHome(); break;
+    case "nav-res": renderMyRes(); break;
+    case "nav-prof": renderProfile(); break;
+    case "lstart": landingStart(); break;
+    case "subchk": subCheckBtn(); break;
+    case "subchk2": subRefresh(true).then(()=>{ if(subLocked()) renderGate(); else { toast(SUB.required===false?"Majburiy obuna o'chiq":"✅ A'zoligingiz tasdiqlandi"); renderProfile(); } }); break;
+    case "chsave": chAdmin(true); break;
+    case "chload": chAdmin(false); break;
     case "theme": { const th=document.documentElement.dataset.theme==="light"?"dark":"light"; store.set("qalam:theme",th); applyTheme(); if(TG.on) tgTheme(); t.textContent=th==="light"?"🌙":"☀️"; break; }
     case "tglogin": { const d=document.getElementById("namedlg"); if(d&&d.open){ try{ d.close(); }catch(x){ d.removeAttribute("open"); } } tgLogin(); break; }
     case "tglogincancel": clearTimeout(LG.timer); LG.state=""; lgRender(); break;
@@ -2733,8 +2798,8 @@ function isAdminDevice(){
 function header(){
   const adm=isAdminDevice();
   return `<header class="top">
-    <div class="brand" data-act="brand" role="button" tabindex="0" style="cursor:pointer"><span class="ar" lang="ar">قلم</span>
-      <h1>Qalam<small>Arab tili CEFR tayyorlov</small></h1></div>
+    <div class="brand" data-act="brand" role="button" tabindex="0" style="cursor:pointer" aria-label="NUTQON — bosh sahifa"><span class="nlogo">NUTQON</span></div>
+    ${navTopHTML()}
     <div class="hdr-r">${TG.on?"":`<a class="tgbtn" href="${BOT_URL}" target="_blank" rel="noopener" title="Telegram botga o'tish">✈️ <span>Bot</span></a>`}<button class="icb" data-act="theme" aria-label="Mavzuni almashtirish" title="Mavzu">${document.documentElement.dataset.theme==="light"?"🌙":"☀️"}</button></div>
 </header>`;
 }
@@ -2781,7 +2846,9 @@ function lbSend(skill,title,score){
 }
 /* Natijani serverga yuborish: navbat + tasdiq + qayta urinish (ko'p foydalanuvchida ham yo'qolmaydi) */
 let LBF={busy:false,fail:0,timer:0};
-async function fetchT(url,opt,ms){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms||15000); try{ return await fetch(url,Object.assign({signal:c.signal},opt||{})); } finally{ clearTimeout(t); } }
+async function fetchT(url,opt,ms){
+  if(opt&&opt.method==="POST"&&url===LB.url&&typeof opt.body==="string"&&opt.body[0]==="{"){ try{ const o=JSON.parse(opt.body); if(!o.init){ const i=bkInit(); if(i){ o.init=i; opt=Object.assign({},opt,{body:JSON.stringify(o)}); } } }catch(e){} }
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms||15000); try{ return await fetch(url,Object.assign({signal:c.signal},opt||{})); } finally{ clearTimeout(t); } }
 async function lbFlush(){
   const m=me(); if(!LB.url||!m||LBF.busy) return;
   let q=lbQueue(); if(!q.length) return;
@@ -2889,11 +2956,10 @@ async function shareCardDraw(o){
   const col=CARD_COL[o.skill]||CARD_COL.reading;
   const g=c.createLinearGradient(0,0,W,H); g.addColorStop(0,col[0]); g.addColorStop(1,col[1]); c.fillStyle=g; c.fillRect(0,0,W,H);
   c.globalAlpha=.08; c.fillStyle="#fff"; c.beginPath(); c.arc(W-80,120,330,0,7); c.fill(); c.beginPath(); c.arc(60,H-80,260,0,7); c.fill(); c.globalAlpha=1;
-  c.globalAlpha=.07; c.font="700 520px 'Noto Naskh Arabic',serif"; c.textAlign="center"; c.fillText("قلم",W/2,H-120); c.globalAlpha=1;
+  c.globalAlpha=.07; c.font="700 520px 'Noto Naskh Arabic',serif"; c.textAlign="center"; c.fillText("N",W/2,H-120); c.globalAlpha=1;
   const fg=o.skill==="listening"?"#06210c":"#ffffff";
   c.fillStyle=fg; c.textAlign="left";
-  c.font="700 72px 'Noto Naskh Arabic',serif"; c.fillText("قلم",80,150);
-  c.font="800 46px Manrope,sans-serif"; c.fillText("Qalam",200,138);
+  c.font="800 64px Manrope,sans-serif"; c.fillText("NUTQON",80,150);
   c.globalAlpha=.85; c.font="600 30px Manrope,sans-serif"; c.fillText("Arab tili · CEFR tayyorlov",200,180); c.globalAlpha=1;
   c.font="800 36px Manrope,sans-serif"; c.globalAlpha=.9; c.fillText(String(o.kick||"").toUpperCase(),80,320); c.globalAlpha=1;
   c.font="800 58px Manrope,sans-serif"; const tt=String(o.title||""); c.fillText(tt.length>30?tt.slice(0,29)+"…":tt,80,390);
@@ -2917,7 +2983,7 @@ async function shareCardDraw(o){
   c.font="600 26px Manrope,sans-serif"; c.globalAlpha=.7; c.fillText(new Date(o.ts||Date.now()).toLocaleDateString(),cx,H-30); c.globalAlpha=1;
   return cv;
 }
-function shareText(o){ return o.practice?`Qalam'da arab tili mashqini ${o.raw}/${o.total} natija bilan bajardim! 💪`:`Men Qalam'da ${o.kick?o.kick.toLowerCase():"arab tili"} bo'yicha ${o.score}/75 ball oldim${lvlOfScore(o.score)?" ("+lvlOfScore(o.score)+")":""}! Siz ham sinab ko'ring 👇`; }
+function shareText(o){ return o.practice?`NUTQON'da arab tili mashqini ${o.raw}/${o.total} natija bilan bajardim! 💪`:`Men NUTQON'da ${o.kick?o.kick.toLowerCase():"arab tili"} bo'yicha ${o.score}/75 ball oldim${lvlOfScore(o.score)?" ("+lvlOfScore(o.score)+")":""}! Siz ham sinab ko'ring 👇`; }
 async function shareCardOpen(o){
   const m=me(); o=Object.assign({name:m&&m.name||""},o);
   let ov=document.getElementById("shareov"); if(ov) ov.remove();
@@ -2947,7 +3013,7 @@ function shareTg(){
 async function sha256hex(s){ try{ const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""); }catch(e){ return ""; } }
 function tkey(){ try{ return sessionStorage.getItem("qalam:tkey")||""; }catch(e){ return ""; } }
 async function tKeySet(pw){ const k=await sha256hex("qalam-teacher|"+pw); try{ sessionStorage.setItem("qalam:tkey",k); }catch(e){} return k; }
-async function tPost(o,ms){ const r=await fetchT(LB.url,{method:"POST",body:JSON.stringify(o)},ms||30000); return await r.json(); }
+async function tPost(o,ms){ const r=await fetchT(LB.url,{method:"POST",body:JSON.stringify(o)},ms||30000); const j=await r.json(); if(j&&(j.err==="sub"||(j.err==="auth"&&o.action!=="sub"&&o.action!=="bkget"))&&o.action!=="sub") setTimeout(subDenied,0); return j; }
 async function tAuth(){ const k=tkey(); if(!k||!LB.url) return null; try{ return await tPost({action:"tauth",key:k},20000); }catch(e){ return null; } }
 function detQ(){ return store.get("qalam:detq",[]); }
 const DETB={};
@@ -3087,7 +3153,7 @@ async function lbLoad(force){
   if(LB.loading) return LB.loading;
   LB.loading=(async()=>{
     for(let a=0;a<2;a++){
-      try{ const r=await fetchT(LB.url+(LB.url.includes("?")?"&":"?")+"t="+Math.floor(Date.now()/30000),{},20000); const j=await r.json();
+      try{ const r=await fetchT(LB.url,{method:"POST",body:JSON.stringify({action:"rows",t:Math.floor(Date.now()/30000)})},20000); const j=await r.json(); if(j&&(j.err==="sub"||j.err==="auth")){ subDenied(); return; }
         if(j&&Array.isArray(j.rows)){ LB.rows=j.rows.filter(x=>x&&x[1]); LB.ts=Date.now(); LB.err=""; try{ store.set("qalam:lbrows",{t:LB.ts,rows:LB.rows.slice(-8000)}); }catch(e){} return; } }
       catch(e){}
       await new Promise(r=>setTimeout(r,1500+Math.random()*2500));
@@ -3666,6 +3732,92 @@ async function bkPull(){
 function applyTheme(){ const t=store.get("qalam:theme","dark")==="light"?"light":"dark"; document.documentElement.dataset.theme=t;
   try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=t==="dark"?"#0C1611":"#F2F7F3"; }catch(e){} }
 applyTheme();
+/* ============ NUTQON: kanal, majburiy obuna (server tekshiradi), menyu, tanishtiruv va profil ============ */
+const CH_URL_DEF="https://t.me/nutqon";
+const SUB={required:null,member:null,channel:CH_URL_DEF,err:"",msg:"",busy:false,ts:0};
+(function(){ const c=store.get("nutqon:sub",null); if(c&&Date.now()-c.ts<864e5){ SUB.required=c.required; SUB.member=c.member; SUB.channel=c.channel||CH_URL_DEF; } })();
+function subLocked(){ return SUB.required===true&&SUB.member!==true; }
+function subAuthed(){ return TG.on?!!(TG.wa&&TG.wa.initData):!!(store.get("qalam:me",null)||{}).tok; }
+async function subRefresh(fresh){
+  if(!LB.url||SUB.busy) return; SUB.busy=true; SUB.err="";
+  try{ const j=await tPost({action:"sub",fresh:!!fresh},20000);
+    if(j&&j.ok){ SUB.required=!!j.required; SUB.member=!!j.member; if(j.channel) SUB.channel=j.channel; }
+    else if(j&&j.err==="auth"){ SUB.required=true; SUB.member=false; if(j.channel) SUB.channel=j.channel; }
+    else if(j&&j.err==="subtg"){ SUB.err="tg"; }
+    else SUB.err="net";
+    SUB.ts=Date.now(); if(SUB.err!=="net"&&SUB.err!=="tg") store.set("nutqon:sub",{required:SUB.required,member:SUB.member,channel:SUB.channel,ts:Date.now()});
+  }catch(e){ SUB.err="net"; }
+  finally{ SUB.busy=false; }
+}
+function subDenied(){ SUB.required=true; SUB.member=false; store.set("nutqon:sub",{required:true,member:false,channel:SUB.channel,ts:Date.now()}); renderGate(); }
+/* Himoyalangan sahifalar: a'zo bo'lmaguncha ochilmaydi (server API'lari ham alohida tekshiradi) */
+function renderGate(){ if(S.view==="admin") return; stopTimer(); stopRec(); txStop(); S.view="gate"; S.topic=null; S.mockMode=false; S.ex=null; S.tx=null; S.fm=null; $app.innerHTML=header()+gateHTML(); window.scrollTo(0,0); navSync(); }
+function gateHTML(){
+  const authed=subAuthed();
+  const msg=SUB.msg?`<div class="msg ${SUB.msgOk?"ok":"bad"}">${esc(SUB.msg)}</div>`:"";
+  if(!authed&&!TG.on) return `<div class="lock"><div class="big">🔐</div><h2>Avval Telegram orqali kiring</h2><p class="note" style="margin:0 auto;max-width:440px">NUTQON'dan foydalanish uchun Telegram akkauntingiz bilan kiring. So'ng @nutqon kanaliga a'zoligingiz tekshiriladi.</p>
+    <div id="acctbox">${acctHTML()}</div>${msg}</div>`;
+  return `<div class="lock"><div class="big">🔒</div><h2>Platformadan foydalanish uchun kanalga a'zo bo'ling</h2>
+    <p class="note" style="margin:0 auto 14px;max-width:440px">Arab tili darslari va CEFR imtihonlaridan foydalanish uchun rasmiy kanalimiz — <b>@nutqon</b> ga a'zo bo'ling, so'ng «A'zolikni tekshirish» ni bosing.</p>
+    <a class="go" href="${esc(SUB.channel||CH_URL_DEF)}" target="_blank" rel="noopener" data-act="chopen" style="display:block;text-decoration:none">📢 Kanalga a'zo bo'lish</a>
+    <button class="go alt" data-act="subchk" ${SUB.busy?"disabled":""}>${SUB.busy?"Tekshirilmoqda…":"✅ A'zolikni tekshirish"}</button>${msg}</div>`;
+}
+async function subCheckBtn(){
+  SUB.msg=""; S.view==="gate"&&renderGate(); await subRefresh(true);
+  if(SUB.err==="tg"){ SUB.msg="⚠️ Telegram tekshiruvi vaqtincha ishlamayapti. Birozdan keyin qayta tekshiring."; SUB.msgOk=false; }
+  else if(SUB.err==="net"){ SUB.msg="Internet yoki server bilan bog'lanib bo'lmadi. Qayta urinib ko'ring."; SUB.msgOk=false; }
+  else if(!subLocked()){ SUB.msg=""; toast("✅ A'zoligingiz tasdiqlandi! NUTQON platformasidan foydalanishingiz mumkin."); renderHome(); return; }
+  else { SUB.msg="❌ Siz hali kanalga a'zo emassiz. Iltimos, kanalga a'zo bo'ling va qayta tekshiring."; SUB.msgOk=false; }
+  if(S.view==="gate") renderGate();
+}
+/* Menyu: Bosh sahifa · CEFR imtihoni · Mashqlar · Natijalar · Profil · Telegram kanal */
+const NAV_ICO={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  cefr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
+  prac:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  res:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  prof:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  ch:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3L2 11l7 3 3 7z"/><path d="M9 14l13-11"/></svg>'};
+const NAV=[["home","Bosh sahifa","nav-home"],["cefr","CEFR imtihoni","nav-cefr"],["prac","Mashqlar","nav-prac"],["res","Natijalar","nav-res"],["prof","Profil","nav-prof"],["ch","Telegram kanal",""]];
+function navCur(){ const v=S.view; if(v==="landing"||v==="gate") return "home"; if(v==="profile") return "prof"; if(v==="myres") return "res"; if(v===""&&!S.topic&&!S.mockMode) return (S.homeTab||"parts")==="full"?"cefr":"prac"; if(S.fm) return "cefr"; return "prac"; }
+function navItems(cls){ const c=navCur(); return NAV.map(([k,lb,act])=>k==="ch"?`<a href="${esc(SUB.channel||CH_URL_DEF)}" target="_blank" rel="noopener">${cls?"":NAV_ICO[k]}<span>${lb}</span></a>`:`<button data-act="${act}" class="${c===k?"on":""}" aria-current="${c===k?"page":"false"}">${cls?"":NAV_ICO[k]}<span>${lb}</span></button>`).join(""); }
+function navTopHTML(){ return `<nav class="ntop" aria-label="Asosiy menyu">${navItems(true)}</nav>`; }
+function navBusy(){ return !!(S.ex&&S.ex.phase!=="done"&&!S.ex.hist)||!!(S.tx&&!S.tx.done); }
+function navSync(){ let n=document.getElementById("bnav"); if(!n){ n=document.createElement("nav"); n.id="bnav"; n.setAttribute("aria-label","Asosiy menyu"); document.body.appendChild(n); }
+  const hide=navBusy()||S.view==="admin"; n.hidden=hide; document.body.classList.toggle("hasnav",!hide); if(!hide) n.innerHTML=navItems(false); }
+function renderLanding(){
+  stopTimer(); stopRec(); txStop(); S.view="landing"; S.topic=null; S.mockMode=false; S.fm=null; S.tx=null;
+  const open=!subLocked()&&SUB.required!==null, last=tresAll().find(r=>r.score!=null);
+  $app.innerHTML=header()+`<section class="lhero"><span class="nlogo">NUTQON</span><h2>Arab tili CEFR imtihoniga tayyorlov</h2><p>Daraja aniqlash · B1–C1 · O'qish, tinglash, gapirish va yozish bo'yicha mock testlar</p>
+      <button class="go" data-act="lstart">${open?"Davom etish ›":"Boshlash ›"}</button></section>
+    <div class="lfeat">
+      <div><span>📖</span><b>O'qish</b><small>Matnlar, savollar, taymer va natija</small></div>
+      <div><span>🎧</span><b>Tinglash</b><small>Audio pleyer va eshitib tushunish testlari</small></div>
+      <div><span>🎙</span><b>Gapirish</b><small>100 mavzu, ovoz yozish va AI tahlili</small></div>
+      <div><span>✍️</span><b>Yozish</b><small>Arabcha matn, so'z soni va rasmiy mezon bo'yicha baho</small></div></div>
+    ${last&&open?`<div class="acct"><span class="av">📈</span><span class="tx2"><b>Oxirgi natija: ${last.score}/75</b><small>${esc(last.title||"")}</small></span><button class="ghost" data-act="nav-res">Natijalar ›</button></div>`:""}
+    <div class="acct"><span class="av">📢</span><span class="tx2"><b>Rasmiy kanal: @nutqon</b><small>Darslar, yangi testlar va e'lonlar</small></span><a class="go alt" style="margin:0;width:auto;padding:10px 14px;text-decoration:none" href="${esc(SUB.channel||CH_URL_DEF)}" target="_blank" rel="noopener">Ochish</a></div>
+    <p class="foot">Telegram bot: <a href="${BOT_URL}" target="_blank" rel="noopener">@${BOT_USER}</a> · Mashq uchun mock imtihon — natija rasmiy CEFR sertifikati emas.</p>`;
+  window.scrollTo(0,0); navSync();
+}
+async function landingStart(){
+  if(!TG.on&&!subAuthed()&&SUB.required!==false){ renderGate(); tgLogin(); return; }
+  if(SUB.required===null||subLocked()){ const b=document.querySelector('[data-act="lstart"]'); if(b){ b.disabled=true; b.textContent="Tekshirilmoqda…"; } await subRefresh(true); }
+  if(subLocked()||SUB.required===null) renderGate(); else renderHome();
+}
+function renderProfile(){
+  stopTimer(); stopRec(); txStop(); S.view="profile"; S.topic=null; S.mockMode=false; S.fm=null; S.tx=null;
+  const m=me(), stTxt=SUB.required===false?"Majburiy obuna hozircha o'chiq":SUB.member?"✅ A'zo":SUB.required?"❌ A'zo emas":"Tekshirilmagan";
+  $app.innerHTML=header()+`<div class="thead"><span class="lvl" style="color:var(--accent)">Profil</span><small>Hisob, a'zolik va sozlamalar</small></div>
+    <div class="card">${TG.on&&m?`<div class="pfrow"><span><b>${esc(m.name)}</b><small>Telegram orqali (Mini App)</small></span><span class="chip">✈️ ${esc(m.username?"@"+m.username:"Telegram")}</span></div>`:`<div id="acctbox">${acctHTML()}</div>`}
+      <div class="pfrow"><span><b>@nutqon kanali</b><small>A'zolik holati: ${stTxt}</small></span><button class="ghost" data-act="subchk2">Qayta tekshirish</button></div>
+      <div class="pfrow"><span><b>Mavzu</b><small>${document.documentElement.dataset.theme==="light"?"Yorug'":"Qorong'i (premium dark)"}</small></span><button class="ghost" data-act="theme">${document.documentElement.dataset.theme==="light"?"🌙 Qorong'i":"☀️ Yorug'"}</button></div>
+      <div class="pfrow"><span><b>Telegram bot</b><small>@${BOT_USER}</small></span><a class="ghost" href="${BOT_URL}" target="_blank" rel="noopener" style="text-decoration:none;padding:8px 12px;border-radius:10px;border:1px solid var(--line)">Ochish</a></div>
+      <div class="pfrow"><span><b>Kanal</b><small>${esc(SUB.channel||CH_URL_DEF)}</small></span><a class="ghost" href="${esc(SUB.channel||CH_URL_DEF)}" target="_blank" rel="noopener" style="text-decoration:none;padding:8px 12px;border-radius:10px;border:1px solid var(--line)">Ochish</a></div></div>
+    <button class="histbtn" data-act="vocab" style="margin-top:12px"><span>📚</span> Lug'atim</button>
+    <button class="histbtn" data-act="rating" style="margin-top:10px"><span>${SK_ICO.trophy}</span> Reyting</button>
+    <p class="note" style="text-align:center;margin-top:16px">NUTQON · mashq uchun mock imtihon, rasmiy sertifikat emas</p>`;
+  window.scrollTo(0,0); navSync();
+}
 /* ============ SAYT ↔ BOT: Telegram orqali kirish (bot tasdiqlaydi, kalitlar faqat serverda) ============ */
 const BOT_USER="qalam_arabic_bot", BOT_URL="https://t.me/"+BOT_USER;
 const LG={code:"",t0:0,timer:0,state:""};
@@ -3687,7 +3839,8 @@ function tgLogin(){
     if(LG.state!=="wait") return;
     if(Date.now()-LG.t0>5*60000){ LG.state="err"; LG.err="Vaqt tugadi — qayta urinib ko'ring"; lgRender(); return; }
     try{ const j=await tPost({action:"lpoll",code:LG.code},15000);
-      if(j&&j.ok&&j.token){ LG.state=""; store.set("qalam:me",{uid:j.uid,name:j.name||"Foydalanuvchi",username:j.username||"",tok:j.token}); BK.ready=false; BK.tries=0; toast("Xush kelibsiz, "+(j.name||"")+"!"); renderHome(); bkPull(); lbFlush(); return; }
+      if(j&&j.ok&&j.token){ LG.state=""; store.set("qalam:me",{uid:j.uid,name:j.name||"Foydalanuvchi",username:j.username||"",tok:j.token}); BK.ready=false; BK.tries=0; toast("Xush kelibsiz, "+(j.name||"")+"!");
+        await subRefresh(true); if(subLocked()) renderGate(); else { renderHome(); bkPull(); lbFlush(); } return; }
       if(j&&j.ok===false&&j.err==="code"){ LG.state="err"; LG.err="Kod eskirgan — qayta urinib ko'ring"; lgRender(); return; } }catch(e){}
     LG.timer=setTimeout(poll,2500); };
   LG.timer=setTimeout(poll,2500);
@@ -3739,14 +3892,27 @@ function tgReady(){
   tgSync();
   if(S.view==="admin") renderAdmin(S.adminTab); else if(!S.topic&&!S.mockMode) renderHome();
   setTimeout(bkPull,1200);
+  subRefresh(false).then(()=>{ if(typeof subApply==="function") subApply(); });
 }
 window.tgReady=tgReady;
 
-renderHome();
+/* Himoya: a'zo bo'lmaganga bo'limlar ochilmaydi (UI); API'lar serverda alohida tekshiriladi */
+["renderHome","renderSkill","renderSkillList","startTest","renderSpeak","renderSpeakHome","renderMock","renderFullMockIntro","openTopic","renderVocab","renderMyRes","renderRating","randomQuestion"].forEach(n=>{
+  const f=window[n]; if(typeof f!=="function") return;
+  window[n]=function(){ if(subLocked()&&S.view!=="admin"){ if(n==="renderHome"&&!TG.on&&!subAuthed()) renderLanding(); else renderGate(); return; } return f.apply(this,arguments); };
+});
+try{ new MutationObserver(()=>navSync()).observe(document.getElementById("app"),{childList:true}); }catch(e){}
+if(SUB.required===null&&!TG.on) renderLanding(); else renderHome();
+navSync();
 loadTests().then(()=>{ if(S.view==="") renderHome(); });
 loadConfig();
 if(window.Telegram&&window.Telegram.WebApp) tgReady();
 setTimeout(()=>{ if(!TG.on&&bkInit()) bkPull(); },1500);
+const subApply=()=>{ if(S.view==="admin") return; if(subLocked()){ if(!navBusy()&&S.view!=="profile"&&S.view!=="gate"&&S.view!=="landing") renderGate(); else if(S.view==="gate") renderGate(); }
+  else if(S.view==="gate") renderHome(); };
+setTimeout(()=>subRefresh(false).then(subApply),TG.on?900:300);
+setInterval(()=>subRefresh(false).then(subApply),10*60000);   // a'zolik har 10 daqiqada qayta tekshiriladi
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&Date.now()-SUB.ts>5*60000) subRefresh(false).then(subApply); });
 </script>
 </body>
 </html>

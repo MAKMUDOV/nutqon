@@ -9,4 +9,4 @@ ROOT="$(cd ../.. && pwd)"
 python3 -m http.server 8765 -d "$ROOT" >/dev/null 2>&1 & SRV=$!
 trap 'kill $SRV' EXIT
 sleep 1
-for t in t1_flow t2_edge t3_long t4_smoke t5_site; do echo "== $t"; node "$t.js"; done
+for t in t1_flow t2_edge t3_long t4_smoke t5_site t6_sub; do echo "== $t"; node "$t.js"; done
