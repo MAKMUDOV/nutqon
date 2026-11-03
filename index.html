@@ -2845,9 +2845,9 @@ function me(){
   return store.get("qalam:me",null);
 }
 function lbQueue(){ return store.get("qalam:lbq",[]); }
-function lbSend(skill,title,score){
+function lbSend(skill,title,score,level){
   if(score==null) return;
-  const q=lbQueue(); q.push({skill,title:String(title||"").slice(0,80),score,level:lvlOfScore(score)||"",ts:Date.now(),rid:Date.now().toString(36)+Math.random().toString(36).slice(2,8)}); store.set("qalam:lbq",q.slice(-50));
+  const q=lbQueue(); q.push({skill,title:String(title||"").slice(0,80),score,level:level!=null?String(level):(lvlOfScore(score)||""),ts:Date.now(),rid:Date.now().toString(36)+Math.random().toString(36).slice(2,8)}); store.set("qalam:lbq",q.slice(-50));
   if(!me()) openNameDlg(); else lbFlush();
 }
 /* Natijani serverga yuborish: navbat + tasdiq + qayta urinish (ko'p foydalanuvchida ham yo'qolmaydi) */
@@ -3173,9 +3173,10 @@ function lbAgg(per,skill){
   if(per==="week"){ const d=new Date(now); const wd=(d.getDay()+6)%7; d.setHours(0,0,0,0); from=d.getTime()-wd*864e5; }
   else if(per==="month"){ from=new Date(now.getFullYear(),now.getMonth(),1).getTime(); }
   const users={};
-  for(const r of LB.rows||[]){ const [ts,uid,name,un,sk,sc]=r; if(+ts<from) continue; if(skill!=="all"&&sk!==skill) continue; const v=Math.max(0,Math.min(75,+sc||0));
+  for(const r of LB.rows||[]){ const [ts,uid,name,un,sk,sc]=r; if(+ts<from) continue; if(skill==="all"?sk==="practice":sk!==skill) continue; const v=Math.max(0,Math.min(75,+sc||0));
     const u=users[uid]||(users[uid]={uid,name:name||un||"Foydalanuvchi",sum:0,n:0,best:0}); u.sum+=v; u.n++; u.best=Math.max(u.best,v); if(name) u.name=name; }
-  return Object.values(users).map(u=>Object.assign(u,{avg:Math.round(u.sum/u.n*10)/10})).sort((a,b)=>b.best-a.best||b.avg-a.avg);
+  const arr=Object.values(users).map(u=>Object.assign(u,{avg:Math.round(u.sum/u.n*10)/10}));
+  return skill==="practice"?arr.sort((a,b)=>b.sum-a.sum||b.n-a.n):arr.sort((a,b)=>b.best-a.best||b.avg-a.avg);
 }
 const LB_MIN=1;
 async function renderRating(){
@@ -3184,7 +3185,7 @@ async function renderRating(){
   const shell=body=>header()+`<div class="back"><button class="ghost" data-act="home">‹ Bosh sahifa</button></div>
     <div class="thead" style="border:0;margin-bottom:6px"><span class="lvl" style="color:var(--ink);font-size:1.5rem;display:flex;gap:8px;align-items:center">${SK_ICO.trophy} Imtihon reytingi</span></div>
     <div class="lbf"><label>Davr<select id="lbper">${[["week","Bu hafta"],["month","Bu oy"],["all","Hammasi"]].map(o=>`<option value="${o[0]}" ${per===o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label>
-      <label>Ko'nikma<select id="lbsk">${[["all","Barchasi"],["listening","Tinglash"],["reading","O'qish"],["writing","Yozish"],["speaking","Gapirish"],["full","To'liq mock"]].map(o=>`<option value="${o[0]}" ${sk===o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label></div>
+      <label>Ko'nikma<select id="lbsk">${[["all","Barchasi"],["listening","Tinglash"],["reading","O'qish"],["writing","Yozish"],["speaking","Gapirish"],["full","To'liq mock"],["practice","Qism mashqlari"]].map(o=>`<option value="${o[0]}" ${sk===o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label></div>
     <div id="lbbody">${body}</div>`;
   $app.innerHTML=shell(`<p class="note">Yuklanmoqda…</p>`); window.scrollTo(0,0);
   const hadQ=lbQueue().length; if(hadQ){ LBF.fail=0; try{ await lbFlush(); }catch(e){} }
@@ -3198,19 +3199,21 @@ function lbBodyHTML(per,sk){
   const staleNote=LB.err==="stale"?`<p class="note" style="margin:0 4px 8px">⚠ Internet sekin — oxirgi saqlangan reyting ko'rsatilmoqda.</p>`:"";
   const ranked=list.filter(u=>u.n>=LB_MIN), mine=m?list.find(u=>u.uid===m.uid):null;
   const myRank=mine?ranked.indexOf(mine)+1:0;
-  const pending=lbQueue().filter(r=>sk==="all"||r.skill===sk||(sk==="full"&&r.skill==="full")), local=pending;
+  const pending=lbQueue().filter(r=>sk==="all"?r.skill!=="practice":r.skill===sk), local=pending;
   const myN=mine?mine.n:0, need=Math.max(0,LB_MIN-myN);
+  const PR=sk==="practice";
   const lvlTxt=v=>lvlOfScore(v)||"&lt;B1", lvlCls=v=>({C1:"c1",B2:"b2",B1:"b1"})[lvlOfScore(v)]||"no";
   const ini=n=>esc((Array.from(String(n).trim())[0]||"?").toUpperCase());
-  const mycard=mine?`<div class="lbme"><div class="ring" style="--p:${Math.round(mine.best/75*100)}"><span>${myRank||ini(mine.name)}</span></div>
-      <div class="mi"><small>${SK_ICO.trophy} ${myRank?myRank+"-O'RIN · "+ranked.length+" TA ISHTIROKCHI":"BALLINGIZ"}</small><b>${esc(mine.name)}</b><span class="chip">${lvlTxt(mine.best)}</span></div>
-      <div class="pc">${mine.best}<small>/75</small></div></div>`
+  const mycard=mine?`<div class="lbme"><div class="ring" style="--p:${PR?Math.min(100,Math.round(mine.sum/Math.max(1,ranked[0]?ranked[0].sum:1)*100)):Math.round(mine.best/75*100)}"><span>${myRank||ini(mine.name)}</span></div>
+      <div class="mi"><small>${SK_ICO.trophy} ${myRank?myRank+"-O'RIN · "+ranked.length+" TA ISHTIROKCHI":"BALLINGIZ"}</small><b>${esc(mine.name)}</b><span class="chip">${PR?mine.n+" ta mashq":lvlTxt(mine.best)}</span></div>
+      <div class="pc">${PR?mine.sum:mine.best}<small>${PR?" to'g'ri":"/75"}</small></div></div>`
     :`<div class="lbme"><div class="ring" style="--p:0"><span>${m?ini(m.name):"?"}</span></div><div class="mi"><small>BALLINGIZ</small><b>${m?esc(m.name):"Siz"}</b><small>${local.length?pending.length+" ta natijangiz serverga yuborilmoqda… Internet bo'lsa, bir necha soniyada chiqadi.":(per==="all"?"Hali test topshirmagansiz.":"Bu davrda test topshirmagansiz.")}</small></div><div class="pc">—</div></div>`;
   const banner=need>0?`<div class="lbnote"><b>Reytingda ko'rinish uchun test topshiring.</b></div>`:"";
-  const rows=ranked.length?ranked.map((u,i)=>`<div class="lbr ${m&&u.uid===m.uid?"me":""}"><span class="rk ${i<3?"top t"+(i+1):""}">${i+1}</span><span class="av">${ini(u.name)}</span><span class="nm">${esc(u.name)}${m&&u.uid===m.uid?" <small>(siz)</small>":""}</span><span class="lbsc ${lvlCls(u.best)}"><b>${u.best}</b><small>${lvlTxt(u.best)}</small></span></div>`).join("")
+  const rows=ranked.length?ranked.map((u,i)=>`<div class="lbr ${m&&u.uid===m.uid?"me":""}"><span class="rk ${i<3?"top t"+(i+1):""}">${i+1}</span><span class="av">${ini(u.name)}</span><span class="nm">${esc(u.name)}${m&&u.uid===m.uid?" <small>(siz)</small>":""}</span>${PR?`<span class="lbsc b2"><b>${u.sum}</b><small>${u.n} ta mashq</small></span>`:`<span class="lbsc ${lvlCls(u.best)}"><b>${u.best}</b><small>${lvlTxt(u.best)}</small></span>`}</div>`).join("")
     :`<div class="empty">Bu davrda reytingda hali hech kim yo'q. Birinchi bo'ling!</div>`;
   return `${staleNote}${banner}${mycard}
-    <div class="lbt"><div class="lbr hd"><span class="rk"></span><span class="av"></span><span class="nm">Ism</span><span class="lbsc hd">Ball · daraja</span></div>${rows}</div>
+    <div class="lbt"><div class="lbr hd"><span class="rk"></span><span class="av"></span><span class="nm">Ism</span><span class="lbsc hd">${PR?"To'g'ri javoblar":"Ball · daraja"}</span></div>${rows}</div>
+    ${PR?`<p class="note" style="margin:8px 4px 0">Qism mashqlarida jami to'g'ri javoblar soni hisoblanadi. Imtihon reytingiga (Barchasi) faqat to'liq testlar va mocklar kiradi.</p>`:sk==="all"?`<p class="note" style="margin:8px 4px 0">Qism mashqlari bu yerga kirmaydi — ularni «Ko'nikma → Qism mashqlari» bo'limida ko'ring.</p>`:""}
     ${S.admin&&LB.sheet?`<a class="dl" href="${esc(LB.sheet)}" target="_blank" rel="noopener">📊 Google Sheets'da ochish</a>`:""}`;
 }
 document.addEventListener("change",ev=>{ const t=ev.target; if(!t) return;
@@ -3435,6 +3438,7 @@ function submitTest(auto){
     tresAdd(rec); x.result=r; x.rec=rec;
     if(S.fm) S.fm.scores[x.skill]=r.score;
     if(!x.test.practice&&x.skill!=="writing") lbSend(x.skill,x.test.title,r.score);
+    else if(x.test.practice&&r.raw!=null) lbSend("practice",x.test.title,r.raw,r.raw+"/"+r.total);
     if(x.skill!=="writing"){ try{ detTest(x,r,rec); }catch(e){} }
     try{ const nv=x.test.skill==='writing'?vbFromWriting(r.per||[],x.test):vbFromTest(x.test,x.ans); if(nv>0) setTimeout(()=>toast(nv+" ta so'z Lug'atimga qo'shildi"),900); }catch(e){}
     tgHaptic("ok"); renderTestResult();
