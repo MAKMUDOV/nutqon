@@ -1836,7 +1836,7 @@ function adminTopicHTML(id){
 function tresHTML(){
   const a=tresAll(); if(!a.length) return "";
   const nm=r=>r.skill==="full"?"🏁 To'liq mock":(SKILLS[r.skill]?SKILLS[r.skill].ico+" "+SKILLS[r.skill].uz:r.skill);
-  return `<div class="card" style="margin-top:0"><h3>Testlar va to'liq mock</h3>${a.slice(0,30).map(r=>`<div class="hrow"><div class="hmain"><b>${nm(r)}</b> <span class="chip">${r.score==null?"—":r.score+"/75"}</span> <b style="color:${lvlOfScore(r.score)?"var(--accent)":"var(--danger)"}">${r.score==null?"":lvlOfScore(r.score)||"yetarli emas"}</b><small>${esc(r.title||"")} · ${new Date(r.ts).toLocaleString()}${r.skill==="full"&&r.scores?" · "+SK_ORDER.map(k=>SKILLS[k].uz+": "+(r.scores[k]==null?"—":r.scores[k])).join(", "):""}</small></div></div>`).join("")}</div>`;
+  return `<div class="card" style="margin-top:0"><h3>Testlar va to'liq mock</h3>${a.slice(0,30).map(r=>`<div class="hrow"><div class="hmain"><b>${nm(r)}</b> <span class="chip">${r.score==null?"—":r.score+"/75"}</span> <b style="color:${lvlOfScore(r.score)?"var(--accent)":"var(--danger)"}">${r.score==null?"":lvlOfScore(r.score)||"yetarli emas"}</b><small>${esc(tN(r.title))} · ${new Date(r.ts).toLocaleString()}${r.skill==="full"&&r.scores?" · "+SK_ORDER.map(k=>SKILLS[k].uz+": "+(r.scores[k]==null?"—":r.scores[k])).join(", "):""}</small></div></div>`).join("")}</div>`;
 }
 async function adminResultsHTML(){
   const top=tresHTML();
@@ -2552,6 +2552,8 @@ async function loadTests(){
   if(loc&&S.admin){ TESTS=loc; TESTS_SRC="local"; }
 }
 function saveLocalTests(t){ TESTS=t; TESTS_SRC="local"; store.set("qalam:tests_local",t); }
+/* O'quvchiga test raqami (Mock N) ko'rsatilmaydi: «O'qish — Mock 22 · 1-qism» → «O'qish · 1-qism» */
+function tN(x){ const s=String(x||""), r=s.replace(/\s*[—–-]\s*Mock\s*\d+/i,""); return r===s?s:(/·/.test(r)?r:r+" · to'liq test"); }
 function testsOf(skill){ return (TESTS.tests||[]).filter(t=>t.skill===skill&&(t.published!==false||S.admin)); }
 function testById(id){ const m=/^(.+)#p(\d+)$/.exec(String(id||"")); if(m){ const b=(TESTS.tests||[]).find(t=>t.id===m[1]); return b?partTest(b,+m[2]-1):null; } return (TESTS.tests||[]).find(t=>t.id===id); }
 /* ===== Qism bo'yicha mashq: tinglash (6 qism) va o'qish (5 qism) — har bir qism alohida, o'z vaqti bilan ===== */
@@ -2580,11 +2582,11 @@ function renderSkillModes(k){
   const pres=tresAll().filter(r=>r.practice&&String(r.testId||"").includes("#p")&&r.skill===k);
   const rows=Array.from({length:PART_N[k]},(_,i)=>{ const r=P.parts[i]||[]; const n=ref?(ref.parts[i].questions||[]).length:0, min=ref?partMin(ref,i):(k==="reading"?r[1]:8);
     const last=pres.find(x=>new RegExp("#p"+(i+1)+"$").test(x.testId)); const cnt=partPool(k,i).length;
-    return `<button class="row" data-act="ppick" data-skill="${k}" data-pi="${i}" ${cnt?"":"disabled"}><span class="n">${i+1}</span><span class="t"><b style="font-size:1rem">${i+1}-qism</b><small>${esc(r[2]||"")}</small><small>${n?n+" savol · ":""}~${min} daqiqa${isAdminDevice()?" · "+cnt+" ta variant":""}</small></span><span class="c">${last&&last.total?`<b>${last.raw}/${last.total}</b><br><small>${Math.round(last.raw/last.total*100)}%</small>`:"›"}</span></button>`; }).join("");
+    return `<button class="row" data-act="ppick" data-skill="${k}" data-pi="${i}" ${cnt?"":"disabled"}><span class="n">${i+1}</span><span class="t"><b style="font-size:1rem">${i+1}-qism</b><small>${esc(r[2]||"")}</small><small>${n?n+" savol · ":""}~${min} daqiqa</small></span><span class="c">${last&&last.total?`<b>${last.raw}/${last.total}</b><br><small>${Math.round(last.raw/last.total*100)}%</small>`:"›"}</span></button>`; }).join("");
   $app.innerHTML=header()+`<div class="back"><button class="ghost" data-act="home">‹ Bosh sahifa</button></div>
     <div class="thead"><span class="lvl" style="color:var(--accent);font-size:1.3rem">${s.uz}</span><small>${s.desc||""}</small></div>
     <button class="go" data-act="tpick" data-skill="${k}">▶ To'liq test · ${P.info} · ${P.min} daqiqa</button>
-    <div class="mhead" style="margin-top:16px"><h2 style="font-size:1.1rem">Qism bo'yicha mashq</h2>${isAdminDevice()?`<span>${full} ta test</span>`:""}</div>
+    <div class="mhead" style="margin-top:16px"><h2 style="font-size:1.1rem">Qism bo'yicha mashq</h2></div>
     <p class="note" style="margin:0 4px 8px">Har bir qismni alohida, o'z vaqti bilan ishlang. Natija to'g'ri javoblar soni bilan «Qism mashqlari» reytingiga qo'shiladi.${k==="listening"?" Audio faqat shu qismni o'ynaydi.":""}</p>
     <div class="list">${rows}</div>`;
   window.scrollTo(0,0);
@@ -2747,7 +2749,7 @@ async function renderMyRes(){
   const flt=a.filter(r=>f==="all"||r.skill===f);
   let lastDay="", rows="";
   flt.slice(0,S.myMore?500:25).forEach(r=>{ const d=mrDay(r.ts); if(d!==lastDay){ rows+=`<div class="mday">${d}</div>`; lastDay=d; } const k=r.skill, l=lvlOfScore(r.score), col=MR_COL[k]||"var(--accent)";
-    rows+=`<button class="mrow" data-act="resopen" data-id="${r.id}" style="--c:${col}"><span class="mric">${SK_ICO[k]||""}</span><span class="mrm"><b>${esc(r.title||nm(k))}</b><small>${mrTime(r.ts)}${r.total?` · ${r.raw}/${r.total} to'g'ri`:""}${r.secs?" · "+fmt(r.secs):""}${k==="full"&&r.scores?" · "+SK_ORDER.map(x=>SKILLS[x].uz[0]+" "+(r.scores[x]==null?"—":r.scores[x])).join(" "):""}</small></span>${r.practice?`<span class="mrs ${r.raw*2>=r.total?"":"no"}"><b>${r.raw}/${r.total}</b><small>mashq</small></span>`:`<span class="mrs ${l?"":"no"}"><b>${r.score==null?"—":r.score}</b><small>${r.score==null?"":l||"&lt;B1"}</small></span>`}</button>`; });
+    rows+=`<button class="mrow" data-act="resopen" data-id="${r.id}" style="--c:${col}"><span class="mric">${SK_ICO[k]||""}</span><span class="mrm"><b>${esc(tN(r.title)||nm(k))}</b><small>${mrTime(r.ts)}${r.total?` · ${r.raw}/${r.total} to'g'ri`:""}${r.secs?" · "+fmt(r.secs):""}${k==="full"&&r.scores?" · "+SK_ORDER.map(x=>SKILLS[x].uz[0]+" "+(r.scores[x]==null?"—":r.scores[x])).join(" "):""}</small></span>${r.practice?`<span class="mrs ${r.raw*2>=r.total?"":"no"}"><b>${r.raw}/${r.total}</b><small>mashq</small></span>`:`<span class="mrs ${l?"":"no"}"><b>${r.score==null?"—":r.score}</b><small>${r.score==null?"":l||"&lt;B1"}</small></span>`}</button>`; });
   const chips=[["all","Hammasi"]].concat(MR_SK.filter(k=>a.some(r=>r.skill===k)).map(k=>[k,nm(k)]));
   $app.innerHTML=header()+`<div class="back"><button class="ghost" data-act="home">‹ Bosh sahifa</button></div>
     <div class="mhead"><h2>Natijalarim</h2><span>🔒 Faqat sizga ko'rinadi</span></div>
@@ -2776,7 +2778,7 @@ function renderResDetail(id){
   else if(t.skill==="writing"){ body=(t.tasks||[]).map((w,i)=>{ const p=wTask(w,(r.ans||{})["w"+i]||""); return `<div class="card"><h3>${esc(w.title||w.id)} · ${p.words} so'z</h3><div class="ev ar" lang="ar">${esc((r.ans||{})["w"+i]||"—")}</div>${p.p.dialect.map(d=>`<div class="why"><b>Xato:</b> <span class="ar" lang="ar">${esc(d.said)} → ${esc(d.fix)}</span> — sheva so'zi, fushada boshqacha.</div>`).join("")}${p.p.issues.map(d=>`<div class="why"><b>Xato:</b> <span class="ar" lang="ar">${esc(d.said)} → ${esc(d.fix)}</span> — ${esc(d.why)}</div>`).join("")}${p.tips.map(x=>`<div class="why"><b>Maslahat:</b> ${esc(x)}</div>`).join("")||`<p class="note">Jiddiy kamchilik topilmadi.</p>`}${sampleHTML(w)}</div>`; }).join(""); }
   else body=mistakesHTML(t,r.ans||{},!!S.mxAll);
   $app.innerHTML=header()+`<div class="back"><button class="ghost" data-act="myres">‹ Natijalarim</button></div>
-    <div class="thead"><span class="lvl" style="color:var(--accent);font-size:1.2rem">${esc(r.title||s.uz)}</span><small>${new Date(r.ts).toLocaleString()}${r.secs?" · "+fmt(r.secs)+" vaqt":""}</small></div>
+    <div class="thead"><span class="lvl" style="color:var(--accent);font-size:1.2rem">${esc(tN(r.title)||s.uz)}</span><small>${new Date(r.ts).toLocaleString()}${r.secs?" · "+fmt(r.secs)+" vaqt":""}</small></div>
     ${r.practice?pracHero(r):scoreHero(r.score,(s.uz||"").toUpperCase()+" · BALL",r.total?r.raw+" / "+r.total+" to'g'ri javob":"")}
     ${r.score!=null||r.practice?`<button class="go alt shbtn" data-act="share">🎉 Natija kartasi — ulashish</button>`:""}
     ${body}${t&&t.skill==="listening"?revAudHTML(t):""}
@@ -2969,7 +2971,7 @@ async function shareCardDraw(o){
   c.font="800 64px Manrope,sans-serif"; c.fillText("NUTQON",80,150);
   c.globalAlpha=.85; c.font="600 30px Manrope,sans-serif"; c.fillText("Arab tili · CEFR tayyorlov",200,180); c.globalAlpha=1;
   c.font="800 36px Manrope,sans-serif"; c.globalAlpha=.9; c.fillText(String(o.kick||"").toUpperCase(),80,320); c.globalAlpha=1;
-  c.font="800 58px Manrope,sans-serif"; const tt=String(o.title||""); c.fillText(tt.length>30?tt.slice(0,29)+"…":tt,80,390);
+  c.font="800 58px Manrope,sans-serif"; const tt=tN(o.title); c.fillText(tt.length>30?tt.slice(0,29)+"…":tt,80,390);
   // ball halqasi
   const cx=W/2, cy=690, R=210, p=o.score==null?0:Math.max(0,Math.min(1,o.score/75));
   c.lineWidth=34; c.strokeStyle=o.skill==="listening"?"rgba(0,0,0,.15)":"rgba(255,255,255,.22)"; c.beginPath(); c.arc(cx,cy,R,0,7); c.stroke();
@@ -3378,7 +3380,7 @@ function renderTest(){
   const x=S.tx, t=x.test, s=SKILLS[t.skill];
   const parts=t.skill==="writing"?null:t.parts||[];
   const fmLab=S.fm?`<span class="chip" style="margin-left:6px">To'liq mock · ${S.fm.i+1}/4</span>`:"";
-  $app.innerHTML=header()+`<div class="txbar"><div><b>${s.ico} ${esc(t.title)}</b>${fmLab}<br><small class="note">${parts?parts.length+" qism · "+qCount(t)+" savol":(t.tasks||[]).length+" vazifa"}</small></div><div class="clock" id="txclock">${fmt(Math.max(0,x.left))}</div></div>
+  $app.innerHTML=header()+`<div class="txbar"><div><b>${s.ico} ${esc(tN(t.title))}</b>${fmLab}<br><small class="note">${parts?parts.length+" qism · "+qCount(t)+" savol":(t.tasks||[]).length+" vazifa"}</small></div><div class="clock" id="txclock">${fmt(Math.max(0,x.left))}</div></div>
     ${parts&&parts.length>1?`<div class="seg tparts" role="group" aria-label="Qismlar">${parts.map((p,i)=>`<button data-act="tpart" data-pi="${i}" aria-pressed="${x.part===i}">${esc(p.title||((i+1)+"-qism"))}</button>`).join("")}</div>`:""}
     ${tapHTML()}${t.practice||t.mockSkip?"":planHTML(t.skill,false)}
     <div id="txbody">${parts?partBody(t,x.part):writingBody(t)}</div>
@@ -3482,7 +3484,7 @@ function renderTestResult(){
     detail=mistakesHTML(t,x.ans,!!S.mxAll);
   }
   const next=S.fm?`<button class="go" data-act="fmnext">${S.fm.i<3?"Keyingi bo'lim: "+SKILLS[SK_ORDER[S.fm.i+1]].uz+" ›":"Yakuniy natija ›"}</button>`:t.partOf?`<button class="go" data-act="ppick" data-skill="${t.skill}" data-pi="${t.partNo}">Yana ${t.partNo+1}-qism ›</button>${t.partNo+1<PART_N[t.skill]?`<button class="go alt" data-act="ppick" data-skill="${t.skill}" data-pi="${t.partNo+1}">Keyingi: ${t.partNo+2}-qism ›</button>`:""}<button class="go alt" data-act="skill" data-skill="${t.skill}">‹ Qismlar ro'yxati</button>`:`<button class="go" data-act="tpick" data-skill="${t.skill}">${s.uz}: keyingi test ›</button><button class="go alt" data-act="home">‹ Bosh sahifa</button>`;
-  $app.innerHTML=header()+`${S.fm?"":`<div class="back"><button class="ghost" data-act="home">‹ Bosh sahifa</button></div>`}<div class="thead"><span class="lvl" style="color:var(--accent);font-size:1.2rem">${s.uz} · natija</span><small>${esc(t.title)} · ${fmt(x.rec.secs)} vaqt sarflandi</small></div>
+  $app.innerHTML=header()+`${S.fm?"":`<div class="back"><button class="ghost" data-act="home">‹ Bosh sahifa</button></div>`}<div class="thead"><span class="lvl" style="color:var(--accent);font-size:1.2rem">${s.uz} · natija</span><small>${esc(tN(t.title))} · ${fmt(x.rec.secs)} vaqt sarflandi</small></div>
     ${t.practice?pracHero(r):(t.skill==="writing"&&!r.ai&&S.wr&&!S.wr.evErr)?`<div class="hero"><div class="kick">${esc(s.uz.toUpperCase())} · BALL</div><div class="lvrow"><div class="big">…<span style="font-size:1.3rem;opacity:.85"> / 75</span></div></div><p style="margin:6px 0 0;font-weight:700">AI yozma ishingizni tekshirmoqda — aniq ball va daraja 20–40 soniyada chiqadi. Sahifani yopmang.</p></div>`:scoreHero(r.score,s.uz.toUpperCase()+" · BALL",t.skill==="writing"?(r.ai?"AI baholashi asosida (struktura, imlo-grammatika, mazmun, so'zlar soni, bog'lovchilar)":S.wr&&!S.wr.evErr?"Taxminiy ball — AI matningizni tekshirmoqda, aniq ball birozdan keyin chiqadi…":"Taxminiy ball (hajm va bog'lovchilar bo'yicha). Aniq ball uchun AI tekshiruvi kerak."):r.raw+" / "+r.total+" to'g'ri javob"+(r.total!==35?" (35 talik shkalada "+r.eq+" ta)":"")+" · multilevel jadvali bo'yicha")}
     <button class="go alt shbtn" data-act="share">🎉 Natija kartasi — ulashish</button>
     ${S.fm?next:""}${detail}${t.skill==="listening"&&!S.fm?revAudHTML(t):""}${S.fm?"":next}`;
@@ -3814,7 +3816,7 @@ function renderLanding(){
       <div><span>🎧</span><b>Tinglash</b><small>Audio pleyer va eshitib tushunish testlari</small></div>
       <div><span>🎙</span><b>Gapirish</b><small>100 mavzu, ovoz yozish va AI tahlili</small></div>
       <div><span>✍️</span><b>Yozish</b><small>Arabcha matn, so'z soni va rasmiy mezon bo'yicha baho</small></div></div>
-    ${last&&open?`<div class="acct"><span class="av">📈</span><span class="tx2"><b>Oxirgi natija: ${last.score}/75</b><small>${esc(last.title||"")}</small></span><button class="ghost" data-act="nav-res">Natijalar ›</button></div>`:""}
+    ${last&&open?`<div class="acct"><span class="av">📈</span><span class="tx2"><b>Oxirgi natija: ${last.score}/75</b><small>${esc(tN(last.title))}</small></span><button class="ghost" data-act="nav-res">Natijalar ›</button></div>`:""}
     <div class="acct"><span class="av">📢</span><span class="tx2"><b>Rasmiy kanal: @nutqon</b><small>Darslar, yangi testlar va e'lonlar</small></span><a class="go alt" style="margin:0;width:auto;padding:10px 14px;text-decoration:none" href="${esc(SUB.channel||CH_URL_DEF)}" target="_blank" rel="noopener">Ochish</a></div>
     <p class="foot">Telegram bot: <a href="${BOT_URL}" target="_blank" rel="noopener">@${BOT_USER}</a> · Mashq uchun mock imtihon — natija rasmiy CEFR sertifikati emas.</p>`;
   window.scrollTo(0,0); navSync();
