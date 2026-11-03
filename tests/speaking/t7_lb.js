@@ -15,7 +15,15 @@ const { launch, waitFor } = require('./h');
   // A. Reyting: Barchasi — mashq qatorlari kirmaydi
   await page.evaluate(() => { S.lbPer = 'all'; S.lbSk = 'all'; renderRating(); });
   await waitFor(page, () => document.querySelectorAll('.lbr:not(.hd)').length > 0, 10000);
-  R.all = await page.evaluate(() => [...document.querySelectorAll('.lbr:not(.hd) .nm')].map(x => x.textContent));
+  R.all = await page.evaluate(() => [...document.querySelectorAll('.lbt')].map(t => [...t.querySelectorAll('.lbr:not(.hd) .nm')].map(x => x.textContent)));
+  R.myCardNoExam = await page.evaluate(() => document.querySelector('.lbme').innerText.replace(/\n/g, ' '));
+  // Faqat mashq qilgan o'quvchi (Vali) sifatida
+  await page.evaluate(() => { localStorage.setItem('qalam:me', JSON.stringify({ uid: 'tg2', name: 'Vali' })); renderRating(); });
+  await page.waitForTimeout(800);
+  R.valiCard = await page.evaluate(() => document.querySelector('.lbme').innerText.replace(/\n/g, ' '));
+  R.valiBanner = await page.evaluate(() => !!document.querySelector('.lbnote'));
+  await page.evaluate(() => { localStorage.setItem('qalam:me', JSON.stringify({ uid: 'tg9', name: 'Test O\'quvchi' })); renderRating(); });
+  await page.waitForTimeout(800);
   // B. Qism mashqlari — jami to'g'ri javoblar bo'yicha
   await page.selectOption('#lbsk', 'practice'); await page.waitForTimeout(300);
   R.practice = await page.evaluate(() => [...document.querySelectorAll('.lbr:not(.hd)')].map(x => x.querySelector('.nm').textContent + ' = ' + x.querySelector('.lbsc b').textContent + ' (' + x.querySelector('.lbsc small').textContent + ')'));
