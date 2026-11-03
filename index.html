@@ -1500,14 +1500,14 @@ async function aiRun(e){
   if(!AI.key){
     if(!LB.url) throw new Error("AI tekshiruvi hozircha yoqilmagan.");
     const m=me()||{}; let j=null;
-    try{ const r=await fetchT(LB.url,{method:"POST",body:JSON.stringify({action:"ai",uid:m.uid||"anon",sys:SYS,json:true,strict:true,user:"CANDIDATE DATA (JSON):\n"+payload})},240000); j=await r.json(); }
-    catch(x){ throw new Error(x&&x.name==="AbortError"?"Javob kech keldi. Qayta urinib ko'ring.":"Internetga ulanib bo'lmadi. Qayta urinib ko'ring."); }
+    try{ j=await srvRetry(async()=>{ const r=await fetchT(LB.url,{method:"POST",body:JSON.stringify({action:"ai",uid:m.uid||"anon",sys:SYS,json:true,strict:true,user:"CANDIDATE DATA (JSON):\n"+payload})},240000); return await r.json(); },aiWaitNote); aiWaitNote(0); }
+    catch(x){ aiWaitNote(0); throw new Error(x&&x.name==="AbortError"?"Javob kech keldi. Qayta urinib ko'ring.":"Internetga ulanib bo'lmadi. Qayta urinib ko'ring."); }
     if(!j||!j.ok){ const er=j&&j.err;
       if(er==="nokey") throw new Error("AI tekshiruvi hali yoqilmagan (o'qituvchi sozlashi kerak).");
       if(er==="sub"||er==="auth"){ setTimeout(subDenied,0); throw new Error("AI tekshiruvi faqat @nutqon kanali a'zolari uchun. Kanalga a'zo bo'ling va a'zolikni tekshiring."); }
       if(er==="subtg") throw new Error("A'zolikni tekshirib bo'lmadi (Telegram vaqtincha javob bermadi). Birozdan keyin qayta urinib ko'ring.");
       if(er==="daylimit") throw new Error("Bugungi AI tekshiruvlar soni tugadi ("+(j.limit||15)+" ta). Ertaga yana tekshira olasiz.");
-      if(er==="busy") throw new Error("Hozir AI band — ko'p o'quvchi tekshiryapti. 1 daqiqadan keyin qayta bosing.");
+      if(er==="busy") throw new Error("Hozir AI juda band — bir necha daqiqa kutdik, navbat kelmadi. Birozdan keyin qayta bosing, ishingiz saqlangan.");
       throw new Error("AI xatosi"+(er?" ("+er+(j.code?" "+j.code:"")+")":"")+". Qayta urinib ko'ring."); }
     S.aiSrv=true;
     try{ return aiParse(j.text||""); }catch(x){ throw new Error("AI javobini o'qib bo'lmadi. Qayta tekshirib ko'ring."); }
@@ -1609,7 +1609,8 @@ async function sttFill(e,rr){
       const blob=(w&&w.blob)||r.blob, mime=(w&&w.blob)?"audio/wav":((r.blob.type||"").split(";")[0]||"audio/webm");
       const dur=(w&&w.dur)||r.secs||0;
       if(w) r.flu={dur:Math.round(w.dur*10)/10,pauses:w.pauses||0,pauseSecs:w.pauseSecs||0};
-      const j=await tPost({action:"stt",uid:m.uid||"anon",mime,secs:Math.round(dur),detail:true,b64:await blobB64(blob)},120000);
+      const b64=await blobB64(blob);
+      const j=await srvRetry(()=>tPost({action:"stt",uid:m.uid||"anon",mime,secs:Math.round(dur),detail:true,b64},120000),(n,w)=>{ if(n) toast("⏳ Server band — navbatdasiz, "+Math.round(w)+" soniyadan keyin o'zi qayta yuboriladi"); });
       if(j&&j.ok){ const c=sttClean(j.text,Math.max(dur,r.secs||0));
         r.stt=j.q||null; r.sttText=c.text;
         if(c.text&&(!r.edited||!String(r.text||"").trim())){ r.text=c.text; if(c.cut) r.warn="Avtomatik matnda ortiqcha takror bor edi — olib tashlandi. Yozuvni tinglab, matnni tekshiring."; }
@@ -2851,6 +2852,24 @@ function lbSend(skill,title,score,level){
   if(score==null) return;
   const q=lbQueue(); q.push({skill,title:String(title||"").slice(0,80),score,level:level!=null?String(level):(lvlOfScore(score)||""),ts:Date.now(),rid:Date.now().toString(36)+Math.random().toString(36).slice(2,8)}); store.set("qalam:lbq",q.slice(-50));
   if(!me()) openNameDlg(); else lbFlush();
+}
+/* Server «band» (busy) desa — o'zi kutib, qayta yuboradi (~5 daqiqagacha). O'quvchi tugmani qayta bosishi shart emas. */
+async function srvRetry(fn,onWait){
+  const waits=[15,25,35,45,55,60,60];
+  for(let a=0;;a++){
+    const j=await fn();
+    if(!(j&&j.err==="busy")||a>=waits.length) return j;
+    const w=waits[a]+Math.random()*10; try{ onWait&&onWait(a+1,w); }catch(e){}
+    await new Promise(r=>setTimeout(r,w*1000));
+  }
+}
+function aiWaitNote(n,w){
+  let el=document.getElementById("aiqnote");
+  if(!n){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement("div"); el.id="aiqnote"; el.setAttribute("role","status");
+    el.style.cssText="position:fixed;left:12px;right:12px;bottom:84px;z-index:60;background:var(--card,#123);color:var(--ink,#fff);border:1px solid var(--accent,#2a7);border-radius:14px;padding:10px 14px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.35);text-align:center";
+    document.body.appendChild(el); }
+  el.textContent="⏳ Hozir ko'p o'quvchi tekshiryapti — siz navbatdasiz ("+n+"-urinish). Taxminan "+Math.round(w)+" soniyadan keyin o'zi qayta yuboriladi. Sahifani yopmang.";
 }
 /* Natijani serverga yuborish: navbat + tasdiq + qayta urinish (ko'p foydalanuvchida ham yo'qolmaydi) */
 let LBF={busy:false,fail:0,timer:0};
