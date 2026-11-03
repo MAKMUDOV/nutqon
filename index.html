@@ -2351,7 +2351,6 @@ document.addEventListener("click",e=>{
     case "share": if(S.shareData) shareCardOpen(S.shareData); break;
     case "vocab": renderVocab(); break;
     case "slist": if(t.dataset.skill==="speaking") renderSpeak(); else renderSkillList(t.dataset.skill); break;
-    case "lbpr": { S.lbSk="practice"; const sel=document.getElementById("lbsk"); if(sel) sel.value="practice"; const b=document.getElementById("lbbody"); if(b) b.innerHTML=lbBodyHTML(S.lbPer||"all","practice"); break; }
     case "rmtog": { const on=!store.get("qalam:remind",true); store.set("qalam:remind",on); const m=me(); if(m&&LB.url) fetchT(LB.url,{method:"POST",body:JSON.stringify({action:"remind",uid:m.uid,on})},20000).catch(()=>{}); toast(on?"Kunlik eslatma yoqildi":"Kunlik eslatma o'chirildi"); renderMyRes(); break; }
     case "vbstart": renderVbCard(false); break;
     case "vbflip": if(S.view==="vbcard") renderVbCard(true); break;
@@ -2587,7 +2586,7 @@ function renderSkillModes(k){
     <div class="thead"><span class="lvl" style="color:var(--accent);font-size:1.3rem">${s.uz}</span><small>${s.desc||""}</small></div>
     <button class="go" data-act="tpick" data-skill="${k}">▶ To'liq test · ${P.info} · ${P.min} daqiqa</button>
     <div class="mhead" style="margin-top:16px"><h2 style="font-size:1.1rem">Qism bo'yicha mashq</h2></div>
-    <p class="note" style="margin:0 4px 8px">Har bir qismni alohida, o'z vaqti bilan ishlang. Natija to'g'ri javoblar soni bilan «Qism mashqlari» reytingiga qo'shiladi.${k==="listening"?" Audio faqat shu qismni o'ynaydi.":""}</p>
+    <p class="note" style="margin:0 4px 8px">Har bir qismni alohida, o'z vaqti bilan ishlang. Natija faqat o'zingizga ko'rinadi — to'g'ri javoblar soni «Natijalar» bo'limida saqlanadi.${k==="listening"?" Audio faqat shu qismni o'ynaydi.":""}</p>
     <div class="list">${rows}</div>`;
   window.scrollTo(0,0);
 }
@@ -2600,7 +2599,7 @@ function pracHero(r){
     <div class="lvrow"><div class="big">${r.raw}<span style="font-size:1.3rem;opacity:.85"> / ${r.total}</span></div><div><b style="font-size:1.6rem">${pc}%</b></div></div>
     <div class="pbar"><u style="width:${pc}%"></u></div>
     <p style="margin:6px 0 0;font-weight:700">${pc===100?"Barakalla! Hammasi to'g'ri.":ok?"Yaxshi! Xatolaringizni pastda ko'rib chiqing.":"Matnni qayta o'qing va xatolar sababini ko'rib chiqing."}</p>
-    <p style="margin:6px 0 0">To'g'ri javoblaringiz «Qism mashqlari» reytingiga qo'shildi. Imtihon darajangiz to'liq test bo'yicha hisoblanadi.</p></div>`;
+    <p style="margin:6px 0 0">Bu natija faqat sizga ko'rinadi. Reyting va daraja to'liq test bo'yicha hisoblanadi.</p></div>`;
 }
 function scoreHero(sc,label,sub){
   const lv=lvlOfScore(sc), ok=!!lv;
@@ -3184,11 +3183,12 @@ function lbAgg(per,skill){
 const LB_MIN=1;
 async function renderRating(){
   stopTimer(); stopRec(); txStop(); S.view="rating"; S.topic=null; S.mockMode=false;
+  if(S.lbSk==="practice") S.lbSk="all";
   const per=S.lbPer||"all", sk=S.lbSk||"all";
   const shell=body=>header()+`<div class="back"><button class="ghost" data-act="home">‹ Bosh sahifa</button></div>
     <div class="thead" style="border:0;margin-bottom:6px"><span class="lvl" style="color:var(--ink);font-size:1.5rem;display:flex;gap:8px;align-items:center">${SK_ICO.trophy} Imtihon reytingi</span></div>
     <div class="lbf"><label>Davr<select id="lbper">${[["week","Bu hafta"],["month","Bu oy"],["all","Hammasi"]].map(o=>`<option value="${o[0]}" ${per===o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label>
-      <label>Ko'nikma<select id="lbsk">${[["all","Barchasi"],["listening","Tinglash"],["reading","O'qish"],["writing","Yozish"],["speaking","Gapirish"],["full","To'liq mock"],["practice","Qism mashqlari"]].map(o=>`<option value="${o[0]}" ${sk===o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label></div>
+      <label>Ko'nikma<select id="lbsk">${[["all","Barchasi"],["listening","Tinglash"],["reading","O'qish"],["writing","Yozish"],["speaking","Gapirish"],["full","To'liq mock"]].map(o=>`<option value="${o[0]}" ${sk===o[0]?"selected":""}>${o[1]}</option>`).join("")}</select></label></div>
     <div id="lbbody">${body}</div>`;
   $app.innerHTML=shell(`<p class="note">Yuklanmoqda…</p>`); window.scrollTo(0,0);
   const hadQ=lbQueue().length; if(hadQ){ LBF.fail=0; try{ await lbFlush(); }catch(e){} }
@@ -3212,20 +3212,15 @@ function lbBodyHTML(per,sk){
       <div class="pc">${PR?mine.sum:mine.best}<small>${PR?" to'g'ri":"/75"}</small></div></div>`
     :`<div class="lbme"><div class="ring" style="--p:0"><span>${m?ini(m.name):"?"}</span></div><div class="mi"><small>BALLINGIZ</small><b>${m?esc(m.name):"Siz"}</b><small>${local.length?pending.length+" ta natijangiz serverga yuborilmoqda… Internet bo'lsa, bir necha soniyada chiqadi.":(per==="all"?"Hali test topshirmagansiz.":"Bu davrda test topshirmagansiz.")}</small></div><div class="pc">—</div></div>`;
   const prL=sk==="all"?lbAgg(per,"practice"):[], myPr=m&&!mine?prL.find(u=>u.uid===m.uid):null, myPrRank=myPr?prL.indexOf(myPr)+1:0;
-  const mycard2=myPr?`<div class="lbme"><div class="ring" style="--p:${Math.min(100,Math.round(myPr.sum/Math.max(1,prL[0].sum)*100))}"><span>${myPrRank}</span></div>
-      <div class="mi"><small>🧩 QISM MASHQLARI · ${myPrRank}-O'RIN · ${prL.length} TA ISHTIROKCHI</small><b>${esc(myPr.name)}</b><span class="chip">${myPr.n} ta mashq</span></div>
+  const mycard2=myPr?`<div class="lbme"><div class="ring" style="--p:0"><span>${ini(myPr.name)}</span></div>
+      <div class="mi"><small>🧩 QISM MASHQLARINGIZ · FAQAT SIZGA KO'RINADI</small><b>${esc(myPr.name)}</b><span class="chip">${myPr.n} ta mashq</span><small>Imtihon reytingiga kirish uchun to'liq test topshiring.</small></div>
       <div class="pc">${myPr.sum}<small> to'g'ri</small></div></div>`:"";
   const banner=need>0&&!myPr?`<div class="lbnote"><b>Reytingda ko'rinish uchun test topshiring.</b></div>`:"";
-  const prRow=(u,i)=>`<div class="lbr ${m&&u.uid===m.uid?"me":""}"><span class="rk ${i<3?"top t"+(i+1):""}">${i+1}</span><span class="av">${ini(u.name)}</span><span class="nm">${esc(u.name)}${m&&u.uid===m.uid?" <small>(siz)</small>":""}</span><span class="lbsc b2"><b>${u.sum}</b><small>${u.n} ta mashq</small></span></div>`;
-  const prTop=prL.slice(0,10), meOut=m&&prL.findIndex(u=>u.uid===m.uid)>=10?prL.findIndex(u=>u.uid===m.uid):-1;
-  const prBlock=sk==="all"&&prL.length?`<div class="thead" style="border:0;margin:18px 0 6px"><span class="lvl" style="color:var(--ink);font-size:1.15rem">🧩 Qism mashqlari reytingi</span></div>
-    <div class="lbt"><div class="lbr hd"><span class="rk"></span><span class="av"></span><span class="nm">Ism</span><span class="lbsc hd">To'g'ri javoblar</span></div>${prTop.map(prRow).join("")}${meOut>=0?prRow(prL[meOut],meOut):""}</div>
-    ${prL.length>10?`<button class="go alt" data-act="lbpr" style="margin-top:8px">Hammasini ko'rish (${prL.length} ta)</button>`:""}`:"";
   const rows=ranked.length?ranked.map((u,i)=>`<div class="lbr ${m&&u.uid===m.uid?"me":""}"><span class="rk ${i<3?"top t"+(i+1):""}">${i+1}</span><span class="av">${ini(u.name)}</span><span class="nm">${esc(u.name)}${m&&u.uid===m.uid?" <small>(siz)</small>":""}</span>${PR?`<span class="lbsc b2"><b>${u.sum}</b><small>${u.n} ta mashq</small></span>`:`<span class="lbsc ${lvlCls(u.best)}"><b>${u.best}</b><small>${lvlTxt(u.best)}</small></span>`}</div>`).join("")
     :`<div class="empty">Bu davrda reytingda hali hech kim yo'q. Birinchi bo'ling!</div>`;
   return `${staleNote}${banner}${myPr?mycard2:mycard}
     <div class="lbt"><div class="lbr hd"><span class="rk"></span><span class="av"></span><span class="nm">Ism</span><span class="lbsc hd">${PR?"To'g'ri javoblar":"Ball · daraja"}</span></div>${rows}</div>
-    ${PR?`<p class="note" style="margin:8px 4px 0">Qism mashqlarida jami to'g'ri javoblar soni hisoblanadi. Imtihon reytingiga (Barchasi) faqat to'liq testlar va mocklar kiradi.</p>`:sk==="all"?`<p class="note" style="margin:8px 4px 0">Imtihon reytingiga to'liq testlar va mocklar kiradi. Qism mashqlari pastda alohida hisoblanadi.</p>${prBlock}`:""}
+    ${PR?`<p class="note" style="margin:8px 4px 0">Qism mashqlarida jami to'g'ri javoblar soni hisoblanadi. Imtihon reytingiga (Barchasi) faqat to'liq testlar va mocklar kiradi.</p>`:sk==="all"?`<p class="note" style="margin:8px 4px 0">Reytingga to'liq testlar va mocklar kiradi. Qism mashqlari natijalari faqat o'zingizga ko'rinadi («Natijalar» bo'limida).</p>`:""}
     ${S.admin&&LB.sheet?`<a class="dl" href="${esc(LB.sheet)}" target="_blank" rel="noopener">📊 Google Sheets'da ochish</a>`:""}`;
 }
 document.addEventListener("change",ev=>{ const t=ev.target; if(!t) return;

@@ -1,4 +1,4 @@
-// 7-test: reyting — qism mashqlari alohida bo'limda, imtihon reytingiga aralashmaydi; mashq natijasi serverga yuboriladi
+// 7-test: reyting — qism mashqlari faqat o'quvchining o'ziga ko'rinadi, imtihon reytingiga aralashmaydi; mashq natijasi serverga yuboriladi
 const { launch, waitFor } = require('./h');
 (async () => { const R = {};
   const { browser, ctx, page, errs } = await launch();
@@ -24,10 +24,9 @@ const { launch, waitFor } = require('./h');
   R.valiBanner = await page.evaluate(() => !!document.querySelector('.lbnote'));
   await page.evaluate(() => { localStorage.setItem('qalam:me', JSON.stringify({ uid: 'tg9', name: 'Test O\'quvchi' })); renderRating(); });
   await page.waitForTimeout(800);
-  // B. Qism mashqlari — jami to'g'ri javoblar bo'yicha
-  await page.selectOption('#lbsk', 'practice'); await page.waitForTimeout(300);
-  R.practice = await page.evaluate(() => [...document.querySelectorAll('.lbr:not(.hd)')].map(x => x.querySelector('.nm').textContent + ' = ' + x.querySelector('.lbsc b').textContent + ' (' + x.querySelector('.lbsc small').textContent + ')'));
-  R.practiceHead = await page.evaluate(() => document.querySelector('.lbr.hd .lbsc').textContent);
+  // B. Qism mashqlari ommaviy ro'yxatda yo'q (faqat o'zida)
+  R.noPracticeOption = await page.evaluate(() => ![...document.querySelectorAll('#lbsk option')].some(o => o.value === 'practice'));
+  R.otherNamesHidden = await page.evaluate(() => !/Sora/.test(document.getElementById('lbbody').innerText));
   // C. Qism mashqini topshirish → serverga practice sifatida yuboriladi
   const pid = await page.evaluate(() => { const t = READING_MOCKS[0]; return t.id; });
   await page.evaluate(() => { const t = partTest(READING_MOCKS[0], 0); S.tx = { test: t, skill: t.skill, ans: {}, t0: Date.now() - 60000, done: false }; });
