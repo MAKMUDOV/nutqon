@@ -1748,7 +1748,27 @@ function adminLoginHTML(msg){
     <p class="note" style="margin:0 0 12px">Barcha boshqaruv shu yerda: natijalar, savollar, sozlamalar.</p>
     <input id="apw" class="inp" type="password" autocomplete="current-password" placeholder="Parol" style="text-align:center">
     <div id="apwmsg" class="note" style="color:var(--danger);min-height:1.5em">${esc(msg||"")}</div>
-    <button class="go" data-act="adminlogin">Kirish ›</button></div>`;
+    <button class="go" data-act="adminlogin">Kirish ›</button>
+    <button class="ghost" data-act="pwforgot" style="margin-top:10px">Parolni unutdingizmi?</button>
+    <div id="pwreset" hidden style="margin-top:12px;text-align:left">
+      <p class="note" style="margin:0 0 8px">Yangi parol faqat admin Telegram akkauntidan (bot ichidan) o'rnatiladi. Boshqa odam tiklay olmaydi.</p>
+      <input id="rpw1" class="inp" type="password" autocomplete="new-password" placeholder="Yangi parol (kamida 6 belgi)" style="margin-bottom:8px">
+      <input id="rpw2" class="inp" type="password" autocomplete="new-password" placeholder="Yangi parolni takrorlang">
+      <div id="rpwmsg" class="note" style="min-height:1.5em;margin-top:6px"></div>
+      <button class="go" data-act="pwreset">Yangi parolni saqlash</button></div></div>`;
+}
+/* Parol unutilsa: server Telegram initData orqali admin (ADMIN_CHAT) ekanini tekshiradi va yangi kalitni o'rnatadi */
+async function adminPwReset(){
+  const a=(document.getElementById("rpw1")||{}).value||"", b=(document.getElementById("rpw2")||{}).value||"", msg=document.getElementById("rpwmsg");
+  const say=(t,bad)=>{ if(msg){ msg.textContent=t; msg.style.color=bad?"var(--danger)":""; } };
+  if(a.length<6){ say("Parol kamida 6 belgi bo'lsin",true); return; } if(a!==b){ say("Parollar mos kelmadi",true); return; }
+  if(!bkInit()){ say("Telegram'dagi NUTQON bot ichida oching (yoki saytda Telegram orqali kiring), keyin qayta urinib ko'ring.",true); return; }
+  say("Tekshirilmoqda…");
+  let j=null; try{ j=await tPost({action:"treset",nkey:await sha256hex("qalam-teacher|"+a)},30000); }catch(e){ say("Internetga ulanib bo'lmadi. Qayta urinib ko'ring.",true); return; }
+  if(!j||!j.ok){ say(j&&j.err==="denied"?"Bu Telegram akkaunt admin emas — parolni faqat admin akkauntidan tiklash mumkin.":"Parolni tiklab bo'lmadi. Qayta urinib ko'ring.",true); return; }
+  store.set("qalam:pw",await pwHash(a)); await tKeySet(a);
+  S.admin=true; S.pwFail=0; try{ sessionStorage.setItem("gapir:admin","1"); }catch(e){}
+  TP.rows=null; toast("Yangi parol saqlandi"); renderAdmin("home");
 }
 async function adminLogin(){
   const el=document.getElementById("apw"), msg=document.getElementById("apwmsg"); if(!el) return;
@@ -2348,6 +2368,8 @@ document.addEventListener("click",e=>{
   }
   switch(t.dataset.act){
     case "admin": renderAdmin(S.admin?(S.adminTab||"home"):"home"); break;
+    case "pwforgot": { const b=document.getElementById("pwreset"); if(b){ b.hidden=!b.hidden; if(!b.hidden) document.getElementById("rpw1").focus(); } break; }
+    case "pwreset": adminPwReset(); break;
     case "adminlogin": adminLogin(); break;
     case "share": if(S.shareData) shareCardOpen(S.shareData); break;
     case "vocab": renderVocab(); break;
