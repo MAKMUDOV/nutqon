@@ -1978,6 +1978,7 @@ function adminSettingsHTML(){
 async function renderAdmin(tab){
   stopTimer(); stopRec(); S.mockMode=false; S.topic=null; S.view="admin";
   const back=`<div class="back"><button class="ghost" data-act="home">‹ Barcha mavzular</button></div>`;
+  if(!S.admin&&!isAdminDevice()){ renderHome(); return; }
   if(!S.admin){
     S.adminNext=tab||"home";
     $app.innerHTML=header()+back+adminLoginHTML(); window.scrollTo(0,0);
@@ -2850,9 +2851,18 @@ function header(){
 </header>`;
 }
 let brandTaps=[];
+/* Admin paneli faqat admin uchun: shu qurilmada avval kirgan bo'lsa yoki server Telegram akkauntni admin (ADMIN_CHAT) deb tasdiqlasa.
+   Boshqalarda ikki marta bosish hech narsa qilmaydi (kirish oynasi ham chiqmaydi). */
+let admChk=0;
+async function brandAdmin(){
+  if(isAdminDevice()){ renderAdmin("home"); return; }
+  if(!bkInit()||Date.now()-admChk<5000) return; admChk=Date.now();
+  let j=null; try{ j=await tPost({action:"treset",nkey:"check"},20000); }catch(e){ return; }
+  if(j&&j.err==="bad"){ store.set("qalam:admdev",true); renderAdmin("home"); }
+}
 function brandTap(){
   const now=Date.now(); brandTaps=brandTaps.filter(t=>now-t<700); brandTaps.push(now);
-  if(brandTaps.length>=2){ brandTaps=[]; if((S.tx&&!S.tx.done)||(S.fm&&!S.fm.saved)||(S.ex&&S.ex.phase!=="done"&&!S.ex.hist)) return; renderAdmin("home"); return; }
+  if(brandTaps.length>=2){ brandTaps=[]; if((S.tx&&!S.tx.done)||(S.fm&&!S.fm.saved)||(S.ex&&S.ex.phase!=="done"&&!S.ex.hist)) return; brandAdmin(); return; }
   if(S.view!==""||S.topic||S.mockMode){ if((S.tx&&!S.tx.done)||(S.fm&&!S.fm.saved)||(S.ex&&S.ex.phase!=="done"&&!S.ex.hist)) return; S.topic=null; renderHome(); }
 }
 function skillRowHTML(k,i){

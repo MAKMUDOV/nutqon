@@ -8,7 +8,7 @@ const { launch } = require('./h');
     if (d.action === 'treset') { seen.push(d); const ok = d.init === 'ADMIN'; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ok ? { ok: true } : { ok: false, err: 'denied' }) }); }
     return route.fallback();
   });
-  await page.evaluate(() => { localStorage.setItem('nutqon:sub', JSON.stringify({ required: false, member: true, ts: Date.now() })); renderAdmin('home'); });
+  await page.evaluate(() => { localStorage.setItem('nutqon:sub', JSON.stringify({ required: false, member: true, ts: Date.now() })); localStorage.setItem('qalam:admdev', 'true'); renderAdmin('home'); });
   await page.waitForTimeout(400);
   R.loginShown = await page.evaluate(() => !!document.getElementById('apw'));
   await page.click('[data-act="pwforgot"]');
