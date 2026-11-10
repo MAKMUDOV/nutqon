@@ -1355,7 +1355,7 @@ function getSample(){
 setTimeout(()=>getSample().then(s=>{ S.hasSample=!!s; if(s){ if(S.ex&&S.ex.phase==="done") renderExam(); } }),1500);
 function aiCardHTML(e,ctx){
   const c=ctx?` data-ctx="${ctx}"`:"";
-  if(e.evState==="loading") return `<div class="card"><h3>AI tekshiruvi</h3><div class="step"><i>…</i><span>AI tekshiryapti — taxminan 30 soniya. Sahifani yopmang…</span></div></div>`;
+  if(e.evState==="loading") return `<div class="card"><h3>AI tekshiruvi</h3><div class="step"><i>…</i><span>${e.evNote?esc(e.evNote):"AI 2 marta mustaqil tekshiryapti — taxminan 30–60 soniya. Sahifani yopmang…"}</span></div></div>`;
   const words=e.res.reduce((a,r)=>a+arWords(r.text).length,0);
   const way=S.hasSample?"Claude ichida ochilgan — kalitsiz ishlaydi.":AI.key?"API kalit orqali ishlaydi.":"Bepul, kuniga 15 ta tekshiruv.";
   return `<div class="card"><h3>AI tekshiruvi</h3>
@@ -1385,8 +1385,7 @@ function sttInfoHTML(r){
 }
 function spEvalHTML(ev,e){
   const cs=CRIT.map(c=>{ const x=(ev.criteria||{})[c[0]]||{}; const ok=x.score!=null&&!isNaN(+x.score); return {k:c[0],uz:c[1],ar:c[2],sc:ok?Math.round(Math.max(0,Math.min(10,+x.score))*10):null,note:x.note||""}; });
-  const confCol={"yuqori":"#2fb52a","o'rta":"#e0a800","past":"#e5484d"}[ev.conf]||"#888";
-  const confHTML=`<span class="chip" style="background:${confCol};color:#fff">Ishonchlilik: ${esc(ev.conf||"?")}</span>${(ev.confWhy||[]).length?`<div class="note" style="margin-top:4px;opacity:.9">${ev.confWhy.map(esc).join(" · ")}</div>`:""}`;
+  const confHTML=confChip(ev)+((ev.rules||[]).length?`<div class="note" style="margin-top:4px;opacity:.9">⚠ ${ev.rules.map(esc).join(" · ")}</div>`:"");
   const pmap=new Map(); e.res.forEach((r,i)=>{ if(r.stt) (r.stt.notes||[]).forEach(n=>{ const k=String(n).trim(); if(!pmap.has(k)) pmap.set(k,[]); pmap.get(k).push(i+1); }); });
   const pron=[...pmap].map(([n,a])=>[a.join(", "),n]);
   const pgood=[...new Set(e.res.flatMap(r=>r.stt?(r.stt.good||[]).map(x=>String(x).trim()):[]))];
@@ -1412,6 +1411,8 @@ function spEvalHTML(ev,e){
     ${(ev.per_answer||[]).length?`<div class="card"><h3>Har bir javob va namunaviy javob</h3>${ev.per_answer.map(a=>{ const r=e.res[(+a.answer||1)-1]; return `<div class="mist"><b>${esc(a.answer)}-javob</b>${r?`<div class="ar note" lang="ar">${r.q.map(esc).join(" / ")}</div>`:""}<p style="margin:6px 0">${esc(a.comment||"")}</p>${a.model_answer?`<details><summary>✨ Namunaviy javob</summary><div class="ar" lang="ar" dir="rtl" style="font-size:1.1rem;line-height:1.9">${esc(a.model_answer)}</div></details>`:""}</div>`; }).join("")}</div>`:""}
     <p class="note" style="margin:10px 4px">AI bahosi taxminiy va o'quv maqsadida. Bu rasmiy CEFR sertifikati natijasi emas.</p>`;
 }
+function confChip(ev){ const col={"yuqori":"#2fb52a","o'rta":"#e0a800","past":"#e5484d"}[ev.conf]||"#888";
+  return `<div style="margin-top:8px"><span class="chip" style="background:${col};color:#fff">Ishonchlilik: ${esc(ev.conf||"?")}</span>${ev.runs>1?` <span class="chip">${ev.runs} ta mustaqil AI bahosi${ev.trials&&ev.trials.length>1?": "+ev.trials.join(" / "):""}</span>`:""}${(ev.confWhy||[]).length?`<div class="note" style="margin-top:4px;opacity:.9">${ev.confWhy.map(esc).join(" · ")}</div>`:""}${ev.review?`<div class="note" style="margin-top:4px;opacity:.95">👩‍🏫 Bu natija o'qituvchiga ko'rib chiqish uchun belgilandi — kerak bo'lsa, ball tuzatiladi.</div>`:""}</div>`; }
 function evalHTML(ev,e){
   if(ev.insufficient) return `<div class="card"><h3>Baho</h3><p style="margin:0">Baholash uchun matn yetarli emas. Javob matnlarini to'ldirib, qayta baholang.</p></div>`;
   if(ev.v2&&e.kind!=="writing") return spEvalHTML(ev,e);
@@ -1425,7 +1426,8 @@ function evalHTML(ev,e){
       <div class="lvrow"><div class="big">${esc(ev.level||"?")}${ev.plus?"+":""}</div><div><b>${has75?total:total.toFixed(1)} / ${tmax}</b><br><span style="opacity:.9;font-size:.85rem">${e.res.length} ta ${wrk?"vazifa":"javob"} asosida</span></div></div>
       <div class="pbar"><u style="width:${Math.round(total/tmax*100)}%"></u></div>
       <div class="msteps" style="margin:0 0 8px">${LVLS.map((l,k)=>`<span class="${k<li?"d":k===li?"c":""}">${l}</span>`).join("")}</div>
-      <p style="margin:6px 0 0">${esc(ev.level_note||"")}</p></div>
+      <p style="margin:6px 0 0">${esc(ev.level_note||"")}</p>${wrk&&ev.conf?confChip(ev):""}</div>
+    ${(ev.rules||[]).length?`<div class="card"><h3>⚠ Kod tekshiruvi</h3>${ev.rules.map(x=>`<p style="margin:6px 0">• ${esc(x)}</p>`).join("")}<p class="note" style="margin:6px 0 0">Bu holatlarda AI bahosidan qat'i nazar ball cheklanadi.</p></div>`:""}
     <div class="card"><h3>O'rtacha va yo'nalish</h3>
       ${cs.map(c=>`<div class="crit"><span>${c.uz} <span class="ar" lang="ar" style="color:var(--muted)">${c.ar}</span></span><b>${c.sc}<small style="display:inline;color:var(--muted)">/10</small></b><div class="bar"><u style="width:${c.sc*10}%"></u></div>${c.note?`<small>${esc(c.note)}</small>`:""}</div>`).join("")}
       ${statsHTML(e)}</div>${wt}
@@ -1632,11 +1634,17 @@ async function aiEvaluate(e,rr){
   e.evState="loading"; e.evErr=""; rr();
   try{
     const rs=await Promise.allSettled([aiRun(e),aiRun(e)]);
-    const ok=rs.filter(r=>r.status==="fulfilled").map(r=>r.value);
+    let ok=rs.filter(r=>r.status==="fulfilled").map(r=>r.value);
     if(!ok.length) throw rs[0].reason;
-    const ev=ok.length>1?aiMerge(ok[0],ok[1]):ok[0];
+    // ikki baho farq qilsa (yoki biri tushmasa) — 3-baho olinadi va mediana olinadi
+    let trial=ok.filter(x=>!x.insufficient).map(x=>aiTrial(x,e));
+    const far=trial.length===2&&trial[0]!=null&&trial[1]!=null&&(Math.abs(trial[0]-trial[1])>=6||(lvl75(trial[0])!==lvl75(trial[1])&&Math.abs(trial[0]-trial[1])>=3));
+    if(far||ok.length<2){ e.evNote=far?"Ikki AI bahosi farq qildi — aniqlik uchun 3-marta tekshirilmoqda…":"Qayta tekshirilmoqda…"; rr();
+      try{ ok.push(await aiRun(e)); }catch(x){} e.evNote=""; trial=ok.filter(x=>!x.insufficient).map(x=>aiTrial(x,e)); }
+    const ev=ok.length>1?(ok.filter(x=>!x.insufficient).length?aiMergeN(ok):ok[0]):ok[0];
     if(e.kind!=="writing"&&!ev.insufficient) spFinalize(ev,e);
-    if(!ev.insufficient){ ev.score75=aiScore75(ev,e); ev.level=ev.score75==null?(ev.level||"?"):lvl75(ev.score75); ev.plus=false; }
+    if(!ev.insufficient){ ev.score75=aiScore75(ev,e); ev.level=ev.score75==null?(ev.level||"?"):lvl75(ev.score75); ev.plus=false; ev.trials=trial.filter(x=>x!=null);
+      if(e.kind==="writing") wrConf(ev,e); aiReview(ev); }
     e.ev=ev; e.evState=""; e.evErr=""; rr(); if(e===S.ex) histSave(e); spSendOnce(e); if(e.onEval) e.onEval(ev);
     setTimeout(()=>{ const h=document.querySelector(".evhero"); if(h) h.scrollIntoView({behavior:"smooth",block:"start"}); },50);
   }catch(x){ e.evState=""; e.evErr=(x&&x.message)||"Xato yuz berdi."; rr(); if(e.onFail) e.onFail(); }
@@ -2397,6 +2405,7 @@ document.addEventListener("click",e=>{
     case "tplogout": S.admin=false; try{ sessionStorage.removeItem("gapir:admin"); }catch(e){} renderAdmin("students"); break;
     case "adminlogout": adminLogout(); break;
     case "admtopics": S.admTopic=0; renderAdmin("topics"); break;
+    case "tgrade": tpGrade(+t.dataset.i); break;
     case "admtopic": S.admTopic=+t.dataset.id; S.adminTab="topics"; renderAdmin("topics"); window.scrollTo(0,0); break;
     case "admaddq": { const ta=document.getElementById("admnewq"); const lines=ta.value.split("\n").map(x=>x.trim()).filter(Boolean);
       if(!lines.length){ toast("Savol yozing"); break; }
@@ -3111,7 +3120,7 @@ async function detFlush(){
 window.addEventListener("online",()=>{ DETF.fail=0; detFlush(); });
 function detTest(x,r,rec){
   const t=x.test; const it={skill:t.skill,testId:t.id,title:t.title,score:r.score,raw:r.raw==null?"":r.raw,total:r.total==null?"":r.total,practice:!!t.practice,fm:!!S.fm,secs:rec.secs||0};
-  if(t.skill==="writing"){ it.data={texts:(t.tasks||[]).map((w,i)=>String(x.ans["w"+i]||"").slice(0,6000))}; it.mist=""; }
+  if(t.skill==="writing"){ it.data={texts:(t.tasks||[]).map((w,i)=>String(x.ans["w"+i]||"").slice(0,6000))}; it.mist=""; const am=aiMeta(x.wr&&x.wr.ev); if(am) it.data.ai=am; }
   else { it.data={ans:x.ans}; it.mist=detMist(t,x.ans); }
   detSend(it);
 }
@@ -3120,7 +3129,7 @@ function detSpeak(e){
   let sc=null; try{ sc=spScore(e); }catch(x){}
   const items=e.res.map(r=>({part:r.part||"",q:(r.q||[]).join(" / ").slice(0,600),secs:r.secs||0,text:String(r.text||"").slice(0,3000),file:""}));
   const blobs=e.res.map((r,i)=>({i,blob:r.blob||null,ext:r.ext||"webm"})).filter(b=>b.blob);
-  detSend({skill:"speaking",testId:"speaking-"+(e.lvl||""),title:e.lvl==="MOCK"?"Og'zaki mock":"Gapirish · "+e.lvl,score:sc,raw:"",total:"",practice:false,fm:!!S.fm,secs:e.res.reduce((a,r)=>a+(r.secs||0),0),data:{lvl:e.lvl,items},mist:""},blobs);
+  detSend({skill:"speaking",testId:"speaking-"+(e.lvl||""),title:e.lvl==="MOCK"?"Og'zaki mock":"Gapirish · "+e.lvl,score:sc,raw:"",total:"",practice:false,fm:!!S.fm,secs:e.res.reduce((a,r)=>a+(r.secs||0),0),data:Object.assign({lvl:e.lvl,items},aiMeta(e.ev)?{ai:aiMeta(e.ev)}:{}),mist:""},blobs);
 }
 
 /* ============ O'QITUVCHI PANELI: ko'rish ============ */
@@ -3156,14 +3165,36 @@ async function adminStudentsHTML(){
   const q=norm(TP.q||"").trim(); const list=tpStudents().filter(s=>!q||norm(s.name+" "+s.user).includes(q));
   return `<div class="bar" style="margin-top:4px"><input id="tpsearch" type="search" placeholder="O'quvchini qidiring" value="${esc(TP.q||"")}"></div>
     <p class="note" style="margin:4px 2px 10px">${tpStudents().length} ta o'quvchi · ${(TP.rows||[]).length} ta urinish · <button class="ghost" data-act="tpreload" style="padding:2px 10px">↻ Yangilash</button></p>
+    ${tpRevHTML()}
     <div class="card mlist">${list.map(s=>`<button class="mrow" data-act="tpstu" data-uid="${esc(s.uid)}" style="--c:var(--accent)"><span class="mric" style="font-weight:800">${esc((Array.from(s.name.trim())[0]||"?").toUpperCase())}</span><span class="mrm"><b>${esc(s.name)}</b><small>${s.user?"@"+esc(s.user)+" · ":""}${s.n} ta urinish · ${tpDate(s.last)}</small></span><span class="tpbest">${SK_ORDER.map(k=>s.best[k]!=null?`<i title="${tpSk(k)}">${tpSk(k)[0]}${s.best[k]}</i>`:"").join("")}</span></button>`).join("")||`<p class="note">Hali javoblar yo'q. O'quvchilar test topshirgach shu yerda paydo bo'ladi.</p>`}</div>`;
+}
+const tpNeedRev=r=>!!(r&&r.d&&r.d.ai&&r.d.ai.review&&!r.d.tgrade);
+function tpRevHTML(){ const rv=(TP.rows||[]).filter(tpNeedRev); if(!rv.length) return "";
+  return `<div class="card"><h3>👩‍🏫 Ko'rib chiqish kerak · ${rv.length} ta</h3><p class="note" style="margin:0 0 8px">AI ishonchi past, daraja chegarasida yoki AI baholari kelishmagan natijalar. Ochib, ballni tasdiqlang yoki tuzating — o'quvchiga bot orqali xabar boradi.</p>
+    <div class="mlist">${rv.slice(0,30).map(r=>`<button class="mrow" data-act="tpatt" data-i="${TP.rows.indexOf(r)}" style="--c:${MR_COL[r.skill]||"var(--accent)"}"><span class="mric">${SK_ICO[r.skill]||""}</span><span class="mrm"><b>${esc(r.name)} · ${esc(tN(r.title||tpSk(r.skill)))}</b><small>${tpDate(r.ts)} · ${esc((r.d.ai.rwhy||[])[0]||"")}</small></span>${tpScore(r)}</button>`).join("")}</div></div>`; }
+function tpAiHTML(r){ const a=r.d&&r.d.ai; const g=r.d.tgrade;
+  const col={"yuqori":"#2fb52a","o'rta":"#e0a800","past":"#e5484d"}[a&&a.conf]||"#888";
+  return `<div class="card"><h3>🧠 AI tekshiruvi va o'qituvchi bahosi</h3>
+    ${a?`<p style="margin:0 0 6px"><span class="chip" style="background:${col};color:#fff">Ishonchlilik: ${esc(a.conf||"?")}</span> <span class="chip">${a.runs||1} ta AI bahosi${(a.trials||[]).length>1?": "+a.trials.join(" / "):""}</span></p>
+      ${(a.rwhy||[]).length?`<div class="why"><b>Nega ko'rib chiqish kerak:</b> ${a.rwhy.map(esc).join(" · ")}</div>`:`<p class="note" style="margin:0">AI bahosi ishonchli deb topildi.</p>`}`:""}
+    ${g?`<div class="step"><i>✅</i><span><b>O'qituvchi bahosi: ${g.score} / 75</b>${g.orig!=null&&g.orig!==g.score?` (AI: ${g.orig})`:" — AI bahosi tasdiqlangan"}${g.note?`<br><small class="note">${esc(g.note)}</small>`:""}</span></div>`:""}
+    <div class="bar" style="margin-top:8px;gap:6px;flex-wrap:wrap"><input id="tgsc" type="number" min="0" max="75" inputmode="numeric" value="${r.score==null?"":r.score}" style="max-width:90px" aria-label="Ball (0–75)"><input id="tgnote" type="text" maxlength="300" placeholder="Izoh (ixtiyoriy)" style="flex:1;min-width:140px"></div>
+    <div class="bar" style="gap:6px;flex-wrap:wrap"><button class="go" data-act="tgrade" data-i="${TP.rows.indexOf(r)}">${g?"Bahoni yangilash":r.score!=null?"✔ Tasdiqlash / saqlash":"Saqlash"}</button></div>
+    <p class="note" style="margin:6px 0 0" id="tgmsg">Ball o'zgarsa, reyting ham yangilanadi va o'quvchiga bot orqali xabar boradi.</p></div>`; }
+async function tpGrade(i){
+  const r=TP.rows[i]; const m=document.getElementById("tgmsg"); const v=+document.getElementById("tgsc").value, note=(document.getElementById("tgnote").value||"").trim();
+  if(!r||isNaN(v)||v<0||v>75||document.getElementById("tgsc").value===""){ if(m) m.textContent="Ballni 0 dan 75 gacha kiriting."; return; }
+  if(m) m.textContent="Saqlanmoqda…";
+  let j=null; try{ j=await tPost({action:"tgrade",key:tkey(),ts:r.ts,uid:r.uid,skill:r.skill,score:Math.round(v),level:lvlOfScore(Math.round(v))||"",note},45000); }catch(e){}
+  if(!j||!j.ok){ if(m) m.textContent=j&&j.err==="nf"?"Bu urinish jadvalda topilmadi.":j&&j.err==="denied"?"Ruxsat yo'q — qayta kiring.":"Saqlab bo'lmadi. Internetni tekshirib, qayta urining."; return; }
+  r.d.tgrade={score:Math.round(v),orig:r.d.tgrade?r.d.tgrade.orig:(j.orig!=null?j.orig:r.score),ts:Date.now(),note}; r.score=Math.round(v); toast("Saqlandi"); tpRender();
 }
 function tpStudentHTML(){
   const s=tpStudents().find(x=>x.uid===TP.stu); if(!s){ TP.stu=null; return adminStudentsHTML(); }
   return `<div class="back"><button class="ghost" data-act="tpback">‹ O'quvchilar</button></div>
     <div class="thead"><span class="lvl" style="color:var(--ink);font-size:1.3rem">${esc(s.name)}</span><small>${s.user?"@"+esc(s.user)+" · ":""}${s.n} ta urinish</small></div>
     <div class="sgrid">${SK_ORDER.concat(["full"]).map(k=>{ const r=s.rows.filter(x=>x.skill===k&&x.score!=null&&!x.d.practice); return `<div class="scard"><div class="sch">${SK_ICO[k]||""}<b>${tpSk(k)}</b></div><div class="scv">${r.length?Math.max(...r.map(x=>x.score)):"—"}<small>/75</small></div><small class="note">${r.length?r.length+" ta · oxirgi "+r[0].score:"topshirmagan"}</small></div>`; }).join("")}</div>
-    <div class="card mlist">${s.rows.map(r=>`<button class="mrow" data-act="tpatt" data-i="${TP.rows.indexOf(r)}" style="--c:${MR_COL[r.skill]||"var(--accent)"}"><span class="mric">${SK_ICO[r.skill]||""}</span><span class="mrm"><b>${esc(r.title||tpSk(r.skill))}</b><small>${tpDate(r.ts)}${r.res?" · "+esc(r.res)+" to'g'ri":""}${r.mist?" · "+r.mist.split(";").length+" ta xato":""}${r.d.old?" · faqat ball":""}</small></span>${tpScore(r)}</button>`).join("")}</div>`;
+    <div class="card mlist">${s.rows.map(r=>`<button class="mrow" data-act="tpatt" data-i="${TP.rows.indexOf(r)}" style="--c:${MR_COL[r.skill]||"var(--accent)"}"><span class="mric">${SK_ICO[r.skill]||""}</span><span class="mrm"><b>${esc(r.title||tpSk(r.skill))}</b><small>${tpDate(r.ts)}${r.res?" · "+esc(r.res)+" to'g'ri":""}${r.mist?" · "+r.mist.split(";").length+" ta xato":""}${r.d.old?" · faqat ball":""}${tpNeedRev(r)?" · ⚠ ko'rib chiqing":r.d.tgrade?" · ✅ o'qituvchi baholadi":""}</small></span>${tpScore(r)}</button>`).join("")}</div>`;
 }
 function tpAttemptHTML(){
   const r=TP.rows[TP.att]; if(!r){ TP.att=null; return tpStudentHTML(); }
@@ -3182,6 +3213,7 @@ function tpAttemptHTML(){
   return `<div class="back"><button class="ghost" data-act="tpbackstu">‹ ${esc(r.name)}</button></div>
     <div class="thead"><span class="lvl" style="color:var(--accent);font-size:1.15rem">${esc(r.title||tpSk(r.skill))}</span><small>${esc(r.name)} · ${tpDate(r.ts)}${r.d.secs?" · "+fmt(r.d.secs):""}</small></div>
     ${r.d.practice?pracHero({raw:+String(r.res).split("/")[0]||0,total:+String(r.res).split("/")[1]||0}):scoreHero(r.score,tpSk(r.skill).toUpperCase()+" · BALL",r.res?r.res+" to'g'ri javob":"")}
+    ${(r.skill==="writing"||r.skill==="speaking")&&!r.d.old&&!r.d.practice?tpAiHTML(r):""}
     ${body}`;
 }
 async function tpAudio(fid,i){
@@ -3588,7 +3620,7 @@ function structCap(text,part){ const raw=String(text||""), t=arNz(raw), paras=ra
   return {cap:paras>=4?10:paras===3?8:paras===2?7:6,note:paras+" ta xatboshi"}; }
 function wrTasks(ev,e){
   if(!ev||ev.insufficient||!Array.isArray(ev.tasks)||!ev.tasks.length||!e||!e.res) return null;
-  const tw=e.res.reduce((a,r)=>a+(r.weight||1/e.res.length),0)||1;
+  const tw=e.res.reduce((a,r)=>a+(r.weight||1/e.res.length),0)||1; ev.rules=[];
   return e.res.map((r,i)=>{ const a=ev.tasks.find(z=>+z.answer===i+1)||ev.tasks[i]||{}; const n=arWords(r.text).length, min=r.min||50;
     const crit={}; WAI.forEach(k=>{ const c=a[k]||{}; crit[k]={score:n?Math.max(0,Math.min(10,Math.round((+c.score||0)*10)/10)):0,note:c.note||""}; });
     crit.sozlar_soni={score:wcScore(n,min,r.max),note:n+" so'z (talab: "+min+(r.max?"–"+r.max:"+")+")"};
@@ -3596,11 +3628,33 @@ function wrTasks(ev,e){
       crit.boglovchilar.score=Math.round((crit.boglovchilar.score+ls)/2*2)/2;
       crit.boglovchilar.note=lf.length+" xil bog'lovchi topildi"+(lf.length?" ("+lf.slice(0,8).join("، ")+")":"")+(crit.boglovchilar.note?". "+crit.boglovchilar.note:"");
       const sc=structCap(r.text,r.part); if(crit.struktura.score>sc.cap) crit.struktura.score=sc.cap;
-      crit.struktura.note=sc.note[0].toUpperCase()+sc.note.slice(1)+(crit.struktura.note?". "+crit.struktura.note:""); }
+      crit.struktura.note=sc.note[0].toUpperCase()+sc.note.slice(1)+(crit.struktura.note?". "+crit.struktura.note:"");
+      const ru=txtRules(r.text,(r.q||[]).join(" ")); Object.keys(ru.caps).forEach(k=>{ if(crit[k]&&crit[k].score>ru.caps[k]){ crit[k].score=ru.caps[k]; crit[k].note="⚠ "+ru.notes.join("; ")+" — ball cheklandi. "+crit[k].note; } });
+      if(ru.notes.length) (ev.rules=ev.rules||[]).push(i+1+"-vazifa: "+ru.notes.join("; ")); }
     const sum=WCRIT.reduce((x,c)=>x+crit[c[0]].score,0), max=75*(r.weight||1/e.res.length)/tw;
     const f=n>=min*0.5?1:n/(min*0.5);
     return {answer:i+1,part:r.part,words:n,crit,max,pts:sum/50*max*f}; });
 }
+function wrConf(ev,e){
+  const words=e.res.reduce((a,r)=>a+arWords(r.text).length,0), why=[], sp=ev.trials&&ev.trials.length>1?Math.max(...ev.trials)-Math.min(...ev.trials):0;
+  if((ev.runs||1)<2) why.push("faqat bitta AI bahosi olindi");
+  if(ev.runs>=3) why.push("3 ta mustaqil baho olinib, mediana hisoblandi");
+  if(sp>=6) why.push("AI baholari orasida farq katta ("+ev.trials.join(" / ")+")");
+  if((ev.rules||[]).length) why.push("kod tekshiruvi ogohlantirdi");
+  if(words<40) why.push("matn juda qisqa ("+words+" so'z)");
+  ev.conf=words<20||(ev.rules||[]).some(x=>/arab yozuvida emas|ko'chirilgan/.test(x))?"past":((ev.runs||1)<2||sp>=6||(ev.rules||[]).length||words<40)?"o'rta":"yuqori";
+  ev.confWhy=why; return ev;
+}
+/* O'qituvchi ko'rib chiqishi kerakmi: ishonch past/o'rta, daraja chegarasida yoki AI'lar kelisholmadi */
+function aiReview(ev){
+  const c=cfg(), sc=ev.score75, why=[];
+  if(ev.conf&&ev.conf!=="yuqori") why.push("ishonchlilik: "+ev.conf);
+  if(sc!=null){ const b=[[c.pass,"B1"],[c.b2,"B2"],[c.c1,"C1"]].find(x=>Math.abs(sc-x[0])<=2); if(b) why.push(b[1]+" chegarasiga yaqin ("+sc+" / chegara "+b[0]+")"); }
+  if(ev.trials&&ev.trials.length>1&&Math.max(...ev.trials)-Math.min(...ev.trials)>=6) why.push("AI baholari: "+ev.trials.join(" / "));
+  if((ev.rules||[]).length) why.push(...ev.rules);
+  ev.review=why.length>0; ev.reviewWhy=why; return ev;
+}
+function aiMeta(ev){ if(!ev||ev.insufficient) return null; return {conf:ev.conf||"",why:(ev.confWhy||[]).slice(0,6),review:!!ev.review,rwhy:(ev.reviewWhy||[]).slice(0,8),runs:ev.runs||1,trials:ev.trials||[],score:ev.score75==null?null:ev.score75,level:ev.level||""}; }
 function aiScore75(ev,e){
   if(!ev||ev.insufficient) return null;
   if(ev.v2) return ev.score100==null?null:Math.max(0,Math.min(75,Math.round(ev.score100*0.75)));
@@ -3611,19 +3665,48 @@ function aiScore75(ev,e){
   const avg=cs.reduce((a,b)=>a+b,0)/cs.length;
   return Math.max(0,Math.min(75,Math.round(avg/10*75*aiDone(e))));
 }
-/* Ikki mustaqil AI bahosini birlashtirish — tasodifiy farqni kamaytiradi */
-function aiMerge(a,b){
-  if(!a||a.insufficient) return b||a; if(!b||b.insufficient) return a;
-  const out=JSON.parse(JSON.stringify(a)); out.criteria={};
-  const keys=new Set(Object.keys(a.criteria||{}).concat(Object.keys(b.criteria||{})));
-  let dsum=0, dn=0;
-  keys.forEach(k=>{ const x=(a.criteria||{})[k]||{}, y=(b.criteria||{})[k]||{}; const xs=+x.score, ys=+y.score; if(!isNaN(xs)&&!isNaN(ys)){ dsum+=Math.abs(xs-ys); dn++; }
-    const sc=isNaN(xs)?ys:isNaN(ys)?xs:Math.round((xs+ys)/2*10)/10; out.criteria[k]={score:sc,note:x.note||y.note||""}; });
-  out.diff=dn?Math.round(dsum/dn*10)/10:0; out.runs=2;
-  if(Array.isArray(a.tasks)&&Array.isArray(b.tasks)){ out.tasks=a.tasks.map((t,i)=>{ const u=b.tasks.find(z=>+z.answer===+t.answer)||b.tasks[i]||{}; const o={answer:t.answer};
-    WAI.forEach(k=>{ const x=t[k]||{}, y=u[k]||{}, xs=+x.score, ys=+y.score; o[k]={score:isNaN(xs)?ys:isNaN(ys)?xs:(xs+ys)/2,note:x.note||y.note||""}; }); return o; }); }
-  else if(!Array.isArray(a.tasks)&&Array.isArray(b.tasks)) out.tasks=b.tasks;
-  const seen=new Set(); out.mistakes=(a.mistakes||[]).concat(b.mistakes||[]).filter(m=>{ const k=String(m.said||"").replace(/\s+/g," ").trim(); if(!k||seen.has(k)) return false; seen.add(k); return true; }).slice(0,12);
+/* Bir nechta mustaqil AI bahosini birlashtirish — har mezon bo'yicha MEDIANA (bitta tasodifiy baho natijani buzmaydi) */
+function med(a){ const v=a.filter(x=>x!=null&&!isNaN(x)).map(Number).sort((x,y)=>x-y); if(!v.length) return NaN; const m=v.length>>1; return v.length%2?v[m]:(v[m-1]+v[m])/2; }
+function aiMergeN(list){
+  list=(list||[]).filter(x=>x&&!x.insufficient); if(!list.length) return null; if(list.length===1){ const o=JSON.parse(JSON.stringify(list[0])); o.runs=1; o.diff=0; return o; }
+  const out=JSON.parse(JSON.stringify(list[0])); out.criteria={}; let sp=0, spn=0;
+  const keys=new Set(); list.forEach(x=>Object.keys(x.criteria||{}).forEach(k=>keys.add(k)));
+  keys.forEach(k=>{ const v=list.map(x=>+((x.criteria||{})[k]||{}).score).filter(x=>!isNaN(x)); const m=med(v);
+    if(v.length>1){ sp+=Math.max(...v)-Math.min(...v); spn++; }
+    const best=list.map(x=>(x.criteria||{})[k]||{}).filter(c=>c.note&&!isNaN(+c.score)).sort((a,b)=>Math.abs(+a.score-m)-Math.abs(+b.score-m))[0]||{};
+    out.criteria[k]={score:isNaN(m)?null:Math.round(m*10)/10,note:best.note||""}; });
+  const tl=list.filter(x=>Array.isArray(x.tasks)&&x.tasks.length);
+  if(tl.length){ out.tasks=tl[0].tasks.map((t,i)=>{ const us=tl.map(x=>x.tasks.find(z=>+z.answer===+t.answer)||x.tasks[i]||{}); const o={answer:t.answer};
+    WAI.forEach(k=>{ const v=us.map(u=>+((u[k]||{}).score)).filter(x=>!isNaN(x)); const m=med(v); if(v.length>1){ sp+=Math.max(...v)-Math.min(...v); spn++; }
+      const best=us.map(u=>u[k]||{}).filter(c=>c.note&&!isNaN(+c.score)).sort((a,b)=>Math.abs(+a.score-m)-Math.abs(+b.score-m))[0]||{};
+      o[k]={score:isNaN(m)?0:m,note:best.note||""}; }); return o; }); }
+  out.diff=spn?Math.round(sp/spn*10)/10:0; out.runs=list.length;
+  // xatolar: 3 ta bahoda — kamida 2 tasi topgan xatolar ustun (bitta AI'ning adashishi chiqmaydi)
+  const key=m=>arNz(String(m.said||"")).replace(/[^؀-ۿ ]/g,"").replace(/\s+/g," ").trim();
+  const cnt={}; list.forEach(x=>{ const seen=new Set(); (x.mistakes||[]).forEach(m=>{ const k=key(m); if(k&&!seen.has(k)){ seen.add(k); cnt[k]=(cnt[k]||0)+1; } }); });
+  const all=[]; const seen=new Set(); list.forEach(x=>(x.mistakes||[]).forEach(m=>{ const k=key(m); if(!k||seen.has(k)) return; seen.add(k); all.push([cnt[k],m]); }));
+  const need=list.length>=3?2:1; let mk=all.filter(a=>a[0]>=need); if(!mk.length) mk=all; out.mistakes=mk.map(a=>a[1]).slice(0,12);
+  return out;
+}
+function aiMerge(a,b){ return aiMergeN([a,b]); }
+/* Bitta AI bahosidan taxminiy ball (ikki baho farqini o'lchash uchun) */
+function aiTrial(ev,e){ try{ const c=JSON.parse(JSON.stringify(ev)); if(e.kind!=="writing") spFinalize(c,e); return aiScore75(c,e); }catch(x){ return null; } }
+/* ===== Qat'iy kod qoidalari: AI nima demasin, bu tekshiruvlar ballni cheklaydi ===== */
+function trig(t){ const w=arNz(t).replace(/[^؀-ۿ\s]/g," ").split(/\s+/).filter(Boolean), g=[]; for(let i=0;i+2<w.length;i++) g.push(w[i]+" "+w[i+1]+" "+w[i+2]); return g; }
+function txtRules(text,prompt){
+  const s=String(text||""), out={caps:{},notes:[]}; const cap=(k,v)=>{ out.caps[k]=Math.min(out.caps[k]==null?10:out.caps[k],v); };
+  const ar=(s.match(/[؀-ۿ]/g)||[]).length, fx=(s.match(/[A-Za-zЀ-ӿ]/g)||[]).length, mix=ar+fx?fx/(ar+fx):0;
+  if(mix>0.3){ ["struktura","imlo_grammatika","mazmun","boglovchilar","grammatika","lugat"].forEach(k=>cap(k,2)); out.notes.push("Matnning katta qismi arab yozuvida emas ("+Math.round(mix*100)+"% lotin/kirill harflari)"); }
+  else if(mix>0.08){ cap("imlo_grammatika",6); cap("grammatika",6); out.notes.push("Matnda lotin/kirill harflari aralashgan"); }
+  const g=trig(s);
+  if(g.length>=6){
+    const pg=new Set(trig(prompt||"")); const cp=pg.size?g.filter(x=>pg.has(x)).length/g.length:0;
+    if(cp>0.6){ cap("mazmun",2); cap("lugat",3); out.notes.push("Javobning "+Math.round(cp*100)+"% topshiriq matnidan ko'chirilgan"); }
+    else if(cp>0.3){ cap("mazmun",6); out.notes.push("Javobning "+Math.round(cp*100)+"% topshiriq matnini takrorlaydi"); }
+    const dup=1-new Set(g).size/g.length;
+    if(dup>0.35){ cap("mazmun",4); cap("struktura",5); cap("lugat",4); out.notes.push("Bir xil iboralar ko'p marta takrorlangan ("+Math.round(dup*100)+"%)"); }
+    else if(dup>0.18){ cap("mazmun",7); cap("lugat",7); out.notes.push("Ba'zi iboralar takrorlangan"); }
+  }
   return out;
 }
 /* Gapirish: yakuniy mezonlar — talaffuz audio asosida (server), ravonlik o'lchov + AI, ishonchlilik */
@@ -3645,6 +3728,11 @@ function spFinalize(ev,e){
     const ai=cr.ravonlik&&cr.ravonlik.score!=null&&!isNaN(+cr.ravonlik.score)?+cr.ravonlik.score:null;
     cr.ravonlik={score:ai==null?m:Math.round((ai+m)/2*10)/10,note:(cr.ravonlik&&cr.ravonlik.note?cr.ravonlik.note+" ":"")+"O'lchov: "+wpm+" so'z/daqiqa, "+pz+" ta uzun pauza."};
     ev.flu={wpm,pauses:pz}; }
+  // qat'iy qoidalar: savolni qaytarib o'qish, bir xil iboralarni takrorlash
+  ev.rules=[]; { let tw=0; const acc={}; res.forEach((r,i)=>{ const w=W(r); if(!w) return; tw+=w; const ru=txtRules(r.text,(r.q||[]).join(" "));
+      ["mazmun","lugat"].forEach(k=>{ acc[k]=(acc[k]||0)+w*(ru.caps[k]==null?10:ru.caps[k]); }); if(ru.notes.length) ev.rules.push(i+1+"-javob: "+ru.notes.join("; ")); });
+    if(tw) ["mazmun","lugat"].forEach(k=>{ const c=Math.round(acc[k]/tw*10)/10; if(cr[k]&&cr[k].score!=null&&+cr[k].score>c){ cr[k].score=c; cr[k].note="⚠ Kod tekshiruvi: "+ev.rules.join("; ")+" — ball cheklandi. "+(cr[k].note||""); } });
+    const short=res.filter(r=>r.limit>=30&&(r.blob||r.text)&&W(r)<8).length; if(short) ev.rules.push(short+" ta javob juda qisqa (8 so'zdan kam)"); }
   // ishonchlilik
   const withA=res.filter(r=>r.blob), poor=withA.filter(r=>r.stt&&(r.stt.quality==="poor"||r.stt.quality==="silent")).length;
   const words=res.reduce((a,r)=>a+W(r),0), unclear=res.reduce((a,r)=>a+((r.stt&&r.stt.unclear)||[]).length,0);
@@ -3652,7 +3740,7 @@ function spFinalize(ev,e){
   ev.reRecord=withA.length>0&&poorShare>=SP_RUBRIC.poorShare;
   ev.conf=ev.reRecord||words<SP_RUBRIC.minWords?"past":(poor>0||uRatio>0.08||words<40||(ev.diff||0)>1.5||(ev.runs||1)<2)?"o'rta":"yuqori";
   ev.confWhy=[]; if(poor) ev.confWhy.push(poor+" ta javobda audio sifati past"); if(uRatio>0.08) ev.confWhy.push("noaniq eshitilgan so'zlar ko'p ("+Math.round(uRatio*100)+"%)");
-  if(words<40) ev.confWhy.push("javob matni qisqa ("+words+" so'z)"); if((ev.diff||0)>1.5) ev.confWhy.push("ikki mustaqil baho bir-biridan farq qildi"); if((ev.runs||1)<2) ev.confWhy.push("faqat bitta AI bahosi olindi");
+  if(words<40) ev.confWhy.push("javob matni qisqa ("+words+" so'z)"); if((ev.diff||0)>1.5) ev.confWhy.push("ikki mustaqil baho bir-biridan farq qildi"); if((ev.runs||1)<2) ev.confWhy.push("faqat bitta AI bahosi olindi"); if(ev.runs>=3) ev.confWhy.push("3 ta mustaqil baho olinib, o'rtachasi (mediana) hisoblandi");
   // umumiy 0–100
   let sw=0, sv=0; CRIT.forEach(c=>{ const x=cr[c[0]]; const w=SP_RUBRIC.weight[c[0]]||0; if(x&&x.score!=null&&!isNaN(+x.score)&&w){ sw+=w; sv+=w*Math.max(0,Math.min(10,+x.score)); } });
   ev.score100=ev.reRecord||!sw?null:Math.max(0,Math.min(100,Math.round(sv/sw*10*aiDone(e))));
