@@ -1,0 +1,7 @@
+# GitHub Pages: saytga kerak bo'lmagan og'ir fayllar joylanmaydi (deploy tez va ishonchli bo'lishi uchun).
+# kanal/*.mp3 — kanal uchun audio nusxalar (Telegram'ga alohida yuklanadi), tests/ — avtomatik testlar.
+# Fayllar repoda qoladi; saytdagi ilova audiolari (tinglashN.mp3) va kanal PDFlari joyida.
+exclude:
+  - tests
+  - "kanal/*.mp3"
+  - README.md
