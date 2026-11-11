@@ -119,7 +119,7 @@ export default function CheckForm({ mode }: { mode: Mode }) {
       <div className="card grid justify-items-center gap-3 py-10 text-center">
         <div className="h-11 w-11 animate-spin rounded-full border-4 border-beige-dark border-t-green" aria-hidden />
         <b>Matn tahlil qilinmoqda…</b>
-        <p className="max-w-md text-sm text-ink-muted">Claude grammatika, mazmun va tuzilmani tekshirmoqda. Bu odatda 30 soniyadan 2 daqiqagacha davom etadi.</p>
+        <p className="max-w-md text-sm text-ink-muted">AI grammatika, mazmun va tuzilmani tekshirmoqda. Bu odatda 30 soniyadan 2 daqiqagacha davom etadi.</p>
         <button type="button" className="btn-ghost btn-sm" onClick={() => ctl.current?.abort()}>To&apos;xtatish</button>
       </div>
     );
