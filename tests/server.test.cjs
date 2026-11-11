@@ -258,6 +258,7 @@ async function body(r) { return r.json(); }
     eq(sent.init.headers["x-goog-api-key"], "g-key");
     const b = JSON.parse(sent.init.body);
     eq(b.generationConfig.responseMimeType, "application/json");
+    assert(!("temperature" in b.generationConfig), "temperature yuborilmasligi kerak (yangi modellar rad etadi)");
     assert(b.systemInstruction.parts[0].text.includes('"rubricScores"'), "sxema promptda yo'q");
     assert(!b.systemInstruction.parts[0].text.includes("submit_assessment tool"), "tool ko'rsatmasi qolib ketgan");
   });

@@ -33,7 +33,7 @@ export function createGeminiClient(o: Opts): AIClient {
     const body = JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: userMessage }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 32000, responseMimeType: "application/json" }
+      generationConfig: { maxOutputTokens: 32000, responseMimeType: "application/json" } // yangi Gemini modellari temperature qabul qilmaydi
     });
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(o.model)}:generateContent`;
     let lastErr: AIRequestError | null = null;
