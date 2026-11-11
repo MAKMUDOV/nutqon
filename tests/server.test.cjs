@@ -57,8 +57,11 @@ function fakeAI(over = {}) {
 }
 
 function deps(ai, extra = {}) {
+  const repo = new MemoryRepo();
+  if (!extra.__noSeed) repo.users.push({ id: "t0", name: "Ustoz", login: "ustoz0", passwordHash: "x", role: "TEACHER", createdAt: new Date().toISOString() });
+  delete extra.__noSeed;
   return {
-    repo: new MemoryRepo(), ai: ai || fakeAI(), model: "test-model", secret: "x".repeat(40), secureCookies: false,
+    repo, ai: ai || fakeAI(), model: "test-model", secret: "x".repeat(40), secureCookies: false,
     allowRegistration: true, checkLimiter: new RateLimiter(100, 3600000), loginLimiter: new RateLimiter(5, 60000), ...extra
   };
 }
@@ -89,12 +92,17 @@ async function body(r) { return r.json(); }
   });
 
   console.log("Autentifikatsiya va xavfsizlik");
+  await t("birinchi ro'yxatdan o'tgan hisob o'qituvchi, keyingilari o'quvchi", async () => {
+    const d = deps(undefined, { __noSeed: true });
+    await signup(d, "birinchi"); await signup(d, "ikkinchi");
+    eq(d.repo.users.map((u) => u.role), ["TEACHER", "STUDENT"]);
+  });
   await t("ro'yxatdan o'tish, login, noto'g'ri parol", async () => {
     const d = deps();
     await signup(d);
     eq((await H.login(req("POST", "/api/auth/login", { login: "ali", password: "parol12345" }), d)).status, 200);
     eq((await H.login(req("POST", "/api/auth/login", { login: "ali", password: "xato" }), d)).status, 401);
-    assert(d.repo.users[0].passwordHash.startsWith("scrypt$"), "parol xeshlanmagan");
+    assert(d.repo.users.at(-1).passwordHash.startsWith("scrypt$"), "parol xeshlanmagan");
   });
   await t("soxta sessiya rad etiladi", async () => {
     const d = deps();
@@ -275,7 +283,7 @@ async function body(r) { return r.json(); }
   });
 
   await t("o'qituvchi hisobi .env orqali birinchi kirishda yaratiladi", async () => {
-    const d = deps(undefined, { bootstrapTeacher: { login: "Ustoz", password: "MaxfiyParol1", name: "Ilyos" } });
+    const d = deps(undefined, { __noSeed: true, bootstrapTeacher: { login: "Ustoz", password: "MaxfiyParol1", name: "Ilyos" } });
     eq((await H.login(req("POST", "/api/auth/login", { login: "ustoz", password: "notogri123" }), d)).status, 401);
     eq(d.repo.users.length, 0);
     const r = await H.login(req("POST", "/api/auth/login", { login: "ustoz", password: "MaxfiyParol1" }), d);

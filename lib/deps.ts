@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createClaudeClient } from "./claude";
 import { RateLimiter } from "./rateLimit";
 import { PrismaRepo } from "./repo.prisma";
@@ -8,8 +9,10 @@ const g = globalThis as unknown as { __nqDeps?: Deps };
 /** Ishlab chiqarish bog'liqliklari (bitta nusxa). Barcha sozlamalar .env faylidan olinadi. */
 export function getDeps(): Deps {
   if (g.__nqDeps) return g.__nqDeps;
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) throw new Error("SESSION_SECRET .env faylida kamida 32 belgili bo'lishi kerak");
+  // SESSION_SECRET berilmasa, maxfiy DATABASE_URL'dan barqaror kalit hosil qilinadi (u faqat serverda bo'ladi).
+  const raw = process.env.SESSION_SECRET || (process.env.DATABASE_URL ? "nutqon-session:" + process.env.DATABASE_URL : "");
+  if (raw.length < 32) throw new Error("SESSION_SECRET (kamida 32 belgi) yoki DATABASE_URL sozlanmagan");
+  const secret = process.env.SESSION_SECRET ? raw : createHash("sha256").update(raw).digest("hex");
   const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
   g.__nqDeps = {
     repo: new PrismaRepo(),

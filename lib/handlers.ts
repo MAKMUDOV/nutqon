@@ -84,7 +84,9 @@ export const register = wrap(async (req, d) => {
   const p = credsSchema.safeParse(await readJson(req));
   if (!p.success) return fail(400, p.error.issues[0].message);
   if (await d.repo.findUserByLogin(p.data.login)) return fail(409, "Bu login band.");
-  const u = await d.repo.createUser({ name: p.data.name, login: p.data.login, passwordHash: hashPassword(p.data.password), role: "STUDENT" });
+  // Platformada hali o'qituvchi bo'lmasa, birinchi ro'yxatdan o'tgan hisob o'qituvchi bo'ladi.
+  const noTeacher = !d.bootstrapTeacher && (await d.repo.listUsers("TEACHER")).length === 0;
+  const u = await d.repo.createUser({ name: p.data.name, login: p.data.login, passwordHash: hashPassword(p.data.password), role: noTeacher ? "TEACHER" : "STUDENT" });
   return json({ user: pub(u) }, 201, { "set-cookie": sessionCookie(createSessionToken(u.id, u.role, d.secret), d.secureCookies) });
 });
 

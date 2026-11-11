@@ -6,22 +6,13 @@ Arab tilida yozilgan **xat (الرسالة)** va **insho (الإنشاء)** ni C
 - Mezonlar: Struktura va tuzilma · Imlo va grammatika · Ma'no va mazmun · So'zlar soni · Bog'lovchilar.
 - Baholash **taxminiy AI baholash**, rasmiy CEFR natijasi emas.
 
-## Vercel'ga joylash (telefondan ham bo'ladi)
+## Vercel'ga joylash
 
-1. **vercel.com** → "Sign up" → **Continue with GitHub** (MAKMUDOV hisobi bilan).
-2. **Add New → Project** → `nutqon-writing` repozitoriyasini tanlang → **Import**.
-3. **Environment Variables** bo'limiga quyidagilarni qo'shing:
-   - `ANTHROPIC_API_KEY` — console.anthropic.com → API Keys dan olingan kalit
-   - `SESSION_SECRET` — kamida 32 belgili tasodifiy satr (masalan, 40 ta aralash harf va raqam)
-   - `TEACHER_LOGIN` — masalan `ustoz`
-   - `TEACHER_PASSWORD` — kamida 8 belgili parol
-   - `TEACHER_NAME` — ismingiz
-4. **Deploy** ni bosing. Birinchi urinish baza yo'qligi uchun xato bilan tugashi mumkin — bu normal.
-5. Loyiha sahifasida **Storage → Create Database → Neon (Postgres)** → bepul rejani tanlang → loyihaga ulang (`DATABASE_URL` avtomatik qo'shiladi).
-6. **Deployments → oxirgi deploy → ⋯ → Redeploy**. Build vaqtida jadvallar avtomatik yaratiladi (`prisma db push`).
-7. Sayt manzili `https://nutqon-writing-....vercel.app` ko'rinishida bo'ladi. `/login` sahifasida `TEACHER_LOGIN` va `TEACHER_PASSWORD` bilan kiring — o'qituvchi hisobi shu zahoti yaratiladi.
-
-O'z domeningizni ulash: loyiha → **Settings → Domains**.
+1. Vercel'da loyihani import qiling (Next.js avtomatik aniqlanadi).
+2. **Storage → Create Database → Neon** (bepul) → loyihaga ulang, prefiks `DATABASE` (natijada `DATABASE_URL`).
+3. **Settings → Environment Variables** ga faqat `ANTHROPIC_API_KEY` ni qo'shing.
+4. **Redeploy**. Jadvallar build vaqtida avtomatik yaratiladi.
+5. Saytda **birinchi ro'yxatdan o'tgan hisob — o'qituvchi**. Shuning uchun deploydan keyin darhol o'zingiz ro'yxatdan o'ting, keyin havolani o'quvchilarga bering.
 
 ## AI API kaliti qayerga kiritiladi?
 
@@ -43,7 +34,8 @@ npm run dev              # http://localhost:3000
 | O'zgaruvchi | Ma'nosi |
 |---|---|
 | `DATABASE_URL` | PostgreSQL ulanishi (Vercel + Neon'da avtomatik) |
-| `TEACHER_LOGIN`, `TEACHER_PASSWORD`, `TEACHER_NAME` | Birinchi kirishda yaratiladigan o'qituvchi hisobi |
+| `SESSION_SECRET` | Ixtiyoriy; berilmasa `DATABASE_URL` dan hosil qilinadi |
+| `TEACHER_LOGIN`, `TEACHER_PASSWORD`, `TEACHER_NAME` | Ixtiyoriy; birinchi kirishda yaratiladigan o'qituvchi hisobi |
 | `ALLOW_REGISTRATION` | `false` bo'lsa, o'quvchilar o'zi ro'yxatdan o'ta olmaydi — hisobni o'qituvchi panelda yaratadi |
 | `CHECKS_PER_HOUR` | Bir o'quvchiga soatiga nechta tekshiruv (standart 10) — API xarajatini nazorat qiladi |
 
@@ -74,7 +66,7 @@ npm run dev              # http://localhost:3000
 npm test
 ```
 
-33 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
+34 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
 
 ## Tuzilma
 
