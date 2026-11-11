@@ -27,6 +27,7 @@
     "../lib/repo.ts",
     "../lib/stats.ts",
     "../lib/handlers.ts",
-    "../lib/types.ts"
+    "../lib/types.ts",
+    "../lib/gemini.ts"
   ]
 }

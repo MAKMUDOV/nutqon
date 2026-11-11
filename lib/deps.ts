@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { createClaudeClient } from "./claude";
+import { createGeminiClient } from "./gemini";
 import { RateLimiter } from "./rateLimit";
 import { PrismaRepo } from "./repo.prisma";
 import type { Deps } from "./handlers";
@@ -13,10 +14,16 @@ export function getDeps(): Deps {
   const raw = process.env.SESSION_SECRET || (process.env.DATABASE_URL ? "nutqon-session:" + process.env.DATABASE_URL : "");
   if (raw.length < 32) throw new Error("SESSION_SECRET (kamida 32 belgi) yoki DATABASE_URL sozlanmagan");
   const secret = process.env.SESSION_SECRET ? raw : createHash("sha256").update(raw).digest("hex");
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+  // AI_PROVIDER: "gemini" | "claude". Berilmasa: GEMINI_API_KEY bo'lsa Gemini, aks holda Claude.
+  const provider = (process.env.AI_PROVIDER || (process.env.GEMINI_API_KEY ? "gemini" : "claude")).toLowerCase();
+  const model = provider === "gemini"
+    ? process.env.GEMINI_MODEL || "gemini-3.8-flash"
+    : process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
   g.__nqDeps = {
     repo: new PrismaRepo(),
-    ai: createClaudeClient({ apiKey: process.env.ANTHROPIC_API_KEY, model }),
+    ai: provider === "gemini"
+      ? createGeminiClient({ apiKey: process.env.GEMINI_API_KEY, model })
+      : createClaudeClient({ apiKey: process.env.ANTHROPIC_API_KEY, model }),
     model,
     secret,
     secureCookies: process.env.NODE_ENV === "production" && process.env.INSECURE_COOKIES !== "true",

@@ -14,6 +14,13 @@ Arab tilida yozilgan **xat (الرسالة)** va **insho (الإنشاء)** ni C
 4. **Redeploy**. Jadvallar build vaqtida avtomatik yaratiladi.
 5. Saytda **birinchi ro'yxatdan o'tgan hisob — o'qituvchi**. Shuning uchun deploydan keyin darhol o'zingiz ro'yxatdan o'ting, keyin havolani o'quvchilarga bering.
 
+## AI provayderi: Gemini yoki Claude
+
+- **Gemini** (bepul darajasi bor): aistudio.google.com/apikey dan kalit olib, `GEMINI_API_KEY` ga qo'ying. Model: `GEMINI_MODEL` (standart `gemini-3.8-flash`).
+- **Claude**: `ANTHROPIC_API_KEY`. Model: `ANTHROPIC_MODEL`.
+- `GEMINI_API_KEY` bo'lsa, avtomatik Gemini ishlatiladi. Majburan tanlash: `AI_PROVIDER=gemini` yoki `AI_PROVIDER=claude`.
+- Qaysi model baholagani har bir natijada saqlanadi.
+
 ## AI API kaliti qayerga kiritiladi?
 
 Faqat muhit o'zgaruvchisi `ANTHROPIC_API_KEY` ga (Vercel → Settings → Environment Variables, yoki lokal `.env` fayli). Kalit **faqat serverda** (`lib/claude.ts`) ishlatiladi va brauzerga hech qachon yuborilmaydi. `.env` fayli `.gitignore` da.
@@ -66,7 +73,7 @@ npm run dev              # http://localhost:3000
 npm test
 ```
 
-34 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
+44 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
 
 ## Tuzilma
 
