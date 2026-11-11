@@ -225,6 +225,19 @@ async function body(r) { return r.json(); }
     const c = createClaudeClient({ apiKey: "k", model: "m", retryDelayMs: 1, fetchImpl: async () => (++n === 1 ? new Response("", { status: 529 }) : okResp({ ok: 1 })) });
     eq(await c("essay", "x"), { ok: 1 }); eq(n, 2);
   });
+  await t("kredit tugaganda tushunarli xabar", async () => {
+    const c = createClaudeClient({ apiKey: "k", model: "m", fetchImpl: async () => new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." } }), { status: 400 }) });
+    let e; try { await c("essay", "x"); } catch (x) { e = x; } assert(e && e.userMessage.includes("kredit yetarli emas"), e && e.userMessage);
+  });
+  await t("temperature rad etilsa, usiz qayta yuboriladi", async () => {
+    const bodies = [];
+    const c = createClaudeClient({ apiKey: "k", model: "m", retryDelayMs: 1, fetchImpl: async (u, init) => { const b = JSON.parse(init.body); bodies.push(b); return "temperature" in b ? new Response(JSON.stringify({ error: { message: "temperature is not supported for this model" } }), { status: 400 }) : okResp({ ok: 1 }); } });
+    eq(await c("essay", "x"), { ok: 1 }); eq(bodies.length, 2);
+  });
+  await t("boshqa 400 xatosida API xabari ko'rsatiladi", async () => {
+    const c = createClaudeClient({ apiKey: "k", model: "m", fetchImpl: async () => new Response(JSON.stringify({ error: { message: "tools.0.input_schema: bad" } }), { status: 400 }) });
+    let e; try { await c("essay", "x"); } catch (x) { e = x; } assert(e && e.userMessage.includes("HTTP 400") && e.userMessage.includes("input_schema"), e && e.userMessage);
+  });
   await t("max_tokens -> to'liq bo'lmagan javob xatosi", async () => {
     const c = createClaudeClient({ apiKey: "k", model: "m", fetchImpl: async () => okResp({}, "max_tokens") });
     let e; try { await c("essay", "x"); } catch (x) { e = x; } assert(e && e.userMessage.includes("to'liq kelmadi"));
