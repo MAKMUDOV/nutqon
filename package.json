@@ -1,0 +1,37 @@
+{
+  "name": "nutqon-writing-checker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NUTQON — arab tili CEFR yozma ishlarini (xat va insho) Claude AI bilan tekshiruvchi platforma",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "vercel-build": "prisma generate && prisma db push --skip-generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start",
+    "db:push": "prisma db push",
+    "create-teacher": "node scripts/create-teacher.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.1",
+    "next": "^15.1.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "prisma": "^6.3.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
+    "outDir": "../.test-build",
+    "rootDir": "..",
+    "lib": [
+      "es2022",
+      "dom"
+    ],
+    "types": [
+      "node"
+    ]
+  },
+  "files": [
+    "../lib/scoring.ts",
+    "../lib/prompt.ts",
+    "../lib/validate.ts",
+    "../lib/claude.ts",
+    "../lib/auth.ts",
+    "../lib/rateLimit.ts",
+    "../lib/repo.ts",
+    "../lib/stats.ts",
+    "../lib/handlers.ts",
+    "../lib/types.ts"
+  ]
+}

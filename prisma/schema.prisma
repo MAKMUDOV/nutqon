@@ -1,0 +1,48 @@
+// NUTQON Writing Checker — ma'lumotlar bazasi
+// PostgreSQL (Vercel + Neon). DATABASE_URL Vercel tomonidan avtomatik qo'shiladi.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  login        String       @unique
+  passwordHash String
+  role         String       @default("STUDENT") // STUDENT | TEACHER
+  createdAt    DateTime     @default(now())
+  submissions  Submission[]
+}
+
+model Submission {
+  id                String    @id
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentName       String
+  mode              String    // letter | essay | full
+  createdAt         DateTime  @default(now())
+  total             Float     // AI bahosi (mezonlar yig'indisi, backendda hisoblangan)
+  max               Float
+  percent           Float
+  letterTotal       Float?
+  essayTotal        Float?
+  model             String
+  partsJson         String    // asl matn, mezon ballari, xatolar, tuzatilgan matn, tavsiyalar
+  teacherReviewJson String?   // o'qituvchi tuzatgan baho (AI bahosidan alohida)
+  teacherTotal      Float?
+  reviewedAt        DateTime?
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model Setting {
+  id   Int    @id @default(1)
+  json String // so'zlar soni chegaralari
+}
