@@ -26,7 +26,7 @@ export function getDeps(): Deps {
       ? createGeminiClient({ apiKey: process.env.GEMINI_API_KEY, model })
       : createClaudeClient({ apiKey: process.env.ANTHROPIC_API_KEY, model }),
     ocr: provider === "gemini"
-      ? createGeminiOcr({ apiKey: process.env.GEMINI_API_KEY, model })
+      ? createGeminiOcr({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_OCR_MODEL || model, fallbackModel: process.env.GEMINI_OCR_FALLBACK || "gemini-3.5-flash-lite", timeoutMs: 110_000 })
       : createClaudeOcr({ apiKey: process.env.ANTHROPIC_API_KEY, model }),
     ocrLimiter: new RateLimiter(Number(process.env.OCR_PER_HOUR || 20), 3600_000),
     model,

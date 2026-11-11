@@ -33,27 +33,50 @@ function clean(text: string): string {
   return t;
 }
 
-export function createGeminiOcr(o: Opts): OcrClient {
+type GeminiOcrOpts = Opts & { fallbackModel?: string; retryDelayMs?: number };
+
+/**
+ * Gemini bilan o'qish. Tezlik uchun "o'ylash" darajasi past qilinadi (ko'chirishga chuqur fikrlash kerak emas).
+ * Server xatosi (5xx) yoki kechikishda bir marta zaxira model bilan qayta uriniladi.
+ */
+export function createGeminiOcr(o: GeminiOcrOpts): OcrClient {
   const doFetch = o.fetchImpl || fetch;
   return async (images) => {
     if (!o.apiKey) throw new AIRequestError("Server sozlanmagan: GEMINI_API_KEY kiritilmagan.", 500);
-    const body = JSON.stringify({
-      contents: [{ role: "user", parts: [...images.map((im) => ({ inlineData: { mimeType: im.mime, data: im.data } })), { text: OCR_PROMPT }] }],
-      generationConfig: { maxOutputTokens: 8000 }
-    });
-    const res = await post(doFetch, `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(o.model)}:generateContent`,
-      { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": o.apiKey }, body }, o.timeoutMs ?? 120_000);
-    if (!res.ok) {
-      const t = await res.text().catch(() => "");
-      console.error(`[nutqon] Gemini OCR HTTP ${res.status}: ${t.slice(0, 800)}`);
-      if (res.status === 429) throw new AIRequestError("Gemini'ning bepul limiti tugadi. Birozdan keyin qayta urinib ko'ring.", 429);
-      if (res.status >= 500) throw new AIRequestError("Gemini xizmati vaqtincha ishlamayapti. Qayta urinib ko'ring.", 503);
-      throw new AIRequestError(`Rasmni o'qishda xato (HTTP ${res.status}).`, 502, t.slice(0, 300));
+    const models = [o.model, ...(o.fallbackModel && o.fallbackModel !== o.model ? [o.fallbackModel] : [])];
+    let lastErr: AIRequestError | null = null;
+    for (let i = 0; i < models.length; i++) {
+      if (i) await new Promise((r) => setTimeout(r, o.retryDelayMs ?? 1500));
+      let useThinking = true;
+      for (let pass = 0; pass < 2; pass++) {
+        const body = JSON.stringify({
+          contents: [{ role: "user", parts: [...images.map((im) => ({ inlineData: { mimeType: im.mime, data: im.data } })), { text: OCR_PROMPT }] }],
+          generationConfig: { maxOutputTokens: 8000, ...(useThinking ? { thinkingConfig: { thinkingLevel: "low" } } : {}) }
+        });
+        let res: Response;
+        try {
+          res = await post(doFetch, `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(models[i])}:generateContent`,
+            { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": o.apiKey }, body }, o.timeoutMs ?? 120_000);
+        } catch (e) {
+          lastErr = e instanceof AIRequestError ? e : new AIRequestError("AI xizmatiga ulanib bo'lmadi.", 504);
+          break; // keyingi modelga o'tamiz
+        }
+        if (res.ok) {
+          const data = (await res.json().catch(() => null)) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[]; promptFeedback?: { blockReason?: string } } | null;
+          if (data?.promptFeedback?.blockReason) throw new AIRequestError("Rasm qabul qilinmadi. Boshqa rasm yuboring.", 422);
+          const text = (data?.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text).join("");
+          return clean(text);
+        }
+        const t = await res.text().catch(() => "");
+        console.error(`[nutqon] Gemini OCR ${models[i]} HTTP ${res.status}: ${t.slice(0, 800)}`);
+        if (res.status === 400 && useThinking && /thinking/i.test(t)) { useThinking = false; continue; } // model bu sozlamani qabul qilmaydi
+        if (res.status === 429) { lastErr = new AIRequestError("Gemini'ning bepul limiti tugadi. Birozdan keyin qayta urinib ko'ring.", 429); break; }
+        if (res.status >= 500) { lastErr = new AIRequestError("Gemini xizmati vaqtincha ishlamayapti. Bir daqiqadan keyin qayta urinib ko'ring.", 503, t.slice(0, 300)); break; }
+        if (res.status === 404) { lastErr = new AIRequestError(`"${models[i]}" modeli topilmadi.`, 502); break; }
+        throw new AIRequestError(`Rasmni o'qishda xato (HTTP ${res.status}).`, 502, t.slice(0, 300));
+      }
     }
-    const data = (await res.json().catch(() => null)) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[]; promptFeedback?: { blockReason?: string } } | null;
-    if (data?.promptFeedback?.blockReason) throw new AIRequestError("Rasm qabul qilinmadi. Boshqa rasm yuboring.", 422);
-    const text = (data?.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text).join("");
-    return clean(text);
+    throw lastErr ?? new AIRequestError("Rasmni o'qib bo'lmadi. Qayta urinib ko'ring.", 502);
   };
 }
 

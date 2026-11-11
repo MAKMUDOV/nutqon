@@ -365,6 +365,20 @@ async function body(r) { return r.json(); }
     eq(sent.contents[0].parts.filter((p) => p.inlineData).length, 2);
     assert(!("temperature" in sent.generationConfig));
   });
+  await t("OCR (Gemini): o'ylash darajasi past; qabul qilinmasa usiz qayta yuboriladi", async () => {
+    const bodies = [];
+    const o = createGeminiOcr({ apiKey: "g", model: "gm", fetchImpl: async (u, init) => { const b = JSON.parse(init.body); bodies.push(b); return b.generationConfig.thinkingConfig ? new Response(JSON.stringify({ error: { message: "thinking_level is not supported" } }), { status: 400 }) : new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "نص" }] } }] }), { status: 200 }); } });
+    eq(await o([IMG]), "نص"); eq(bodies.length, 2); eq(bodies[0].generationConfig.thinkingConfig.thinkingLevel, "low");
+  });
+  await t("OCR (Gemini): 503 bo'lsa zaxira model bilan qayta uriniladi", async () => {
+    const urls = [];
+    const o = createGeminiOcr({ apiKey: "g", model: "asosiy", fallbackModel: "zaxira", retryDelayMs: 1, fetchImpl: async (u) => { urls.push(u); return u.includes("asosiy") ? new Response("overloaded", { status: 503 }) : new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "نص" }] } }] }), { status: 200 }); } });
+    eq(await o([IMG]), "نص"); assert(urls[0].includes("models/asosiy:") && urls[1].includes("models/zaxira:"));
+  });
+  await t("OCR (Gemini): ikkala model ham ishlamasa tushunarli xato", async () => {
+    const o = createGeminiOcr({ apiKey: "g", model: "a", fallbackModel: "b", retryDelayMs: 1, fetchImpl: async () => new Response("x", { status: 500 }) });
+    let e; try { await o([IMG]); } catch (x) { e = x; } assert(e && e.userMessage.includes("vaqtincha"), e && e.userMessage);
+  });
   await t("OCR (Claude): base64 image bloklari", async () => {
     let sent;
     const o = createClaudeOcr({ apiKey: "c", model: "cm", fetchImpl: async (u, init) => { sent = JSON.parse(init.body); return new Response(JSON.stringify({ content: [{ type: "text", text: "نص" }] }), { status: 200 }); } });
