@@ -1,4 +1,4 @@
-import type { PartType, Scores } from "./scoring";
+import type { PartType, Scores, Settings } from "./scoring";
 
 export type Role = "STUDENT" | "TEACHER";
 
@@ -59,6 +59,8 @@ export type PartResult = {
   scores: Scores;
   total: number;
   max: number;
+  /** Shu tekshiruvda so'zlar soni uchun qo'llangan chegaralar */
+  wordSettings?: Settings;
 };
 
 export type TeacherReview = {

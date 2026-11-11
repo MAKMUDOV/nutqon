@@ -52,12 +52,14 @@ npm run dev              # http://localhost:3000
 2. Server matnni tekshiradi (bo'sh, arabcha emas, 10 so'zdan kam yoki 1000 dan ko'p bo'lsa — rad etadi) va so'zlarni **deterministik** sanaydi (`lib/scoring.ts`: harakatlar, tatvil va tinish belgilari so'z emas; yopishgan و/ف/ب/ل/ك prefikslari so'z ichida qoladi).
 3. Claude API'ga qat'iy tizim prompti (`lib/prompt.ts`) va `submit_assessment` tool sxemasi bilan so'rov yuboriladi (`temperature: 0`). O'quvchi matni faqat `<student_text>` ichida, ma'lumot sifatida beriladi — undagi buyruqlar baholash qoidalarini o'zgartira olmaydi.
 4. Javob **zod** bilan tekshiriladi (`lib/validate.ts`): ballar 0…maksimum oralig'iga cheklanadi va 0,5 ga yaxlitlanadi; matnda topilmagan "xatolar" olib tashlanadi.
-5. **So'zlar soni bali** dasturda hisoblanadi (±10% — to'liq, 10–20% — 60%, 20–30% — 20%, undan ko'p — 0; o'qituvchi sozlamalarda o'zgartiradi). **Umumiy ball** — serverda mezonlar yig'indisi.
+5. **So'zlar soni bali** dasturda hisoblanadi (standart: ±10% — to'liq, 10–20% — 80%, 20–30% — 60%, 30–40% — 40%, 40–50% — 20%, undan ko'p — 0; o'qituvchi sozlamalarda o'zgartiradi, qo'llangan qoida har bir natijada saqlanadi). **Umumiy ball** — serverda mezonlar yig'indisi.
 6. AI ishlamasa yoki noto'g'ri javob qaytarsa — tushunarli xato chiqadi, soxta natija saqlanmaydi.
 
 ## Imkoniyatlar
 
 - Uch rejim: xat, insho, to'liq Writing (alohida baholanadi, jami /75 va foiz).
+- **Daftar rasmidan o'qish (OCR):** 1–4 sahifa rasmini yuklang — AI arabcha qo'lyozmani xatolari bilan, tuzatmasdan ko'chiradi. Rasm brauzerda kichraytiriladi; limit `OCR_PER_HOUR` (standart 20).
+- **Parollar:** o'qituvchi panelida o'quvchi parolini tiklash; har kim "Hisobim" sahifasida o'z parolini o'zgartiradi.
 - Jonli so'z hisoblagich ("142 / 150 so'z · Yana 8 ta so'z kerak") va vaqt hisoblagich; qoralama brauzerda saqlanadi.
 - Natijalar: ball halqasi, har bir mezon bo'yicha asos, kuchli/zaif tomonlar va tavsiya.
 - Xatolar matnda rang bilan: qizil — grammatika/imlo, sariq — uslub, ko'k — so'z tanlovi. Bosilganda xato, to'g'ri variant va o'zbekcha izoh.
@@ -73,7 +75,7 @@ npm run dev              # http://localhost:3000
 npm test
 ```
 
-44 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
+55 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
 
 ## Tuzilma
 

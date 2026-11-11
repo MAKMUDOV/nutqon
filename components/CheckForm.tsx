@@ -28,6 +28,57 @@ function Timer({ startedAt, minutes }: { startedAt: number | null; minutes: numb
   return <span className={`font-bold tabular-nums ${late ? "text-red-700" : ""}`} title={late ? "Tavsiya etilgan vaqt tugadi" : undefined}>⏱ {mmss(sec)} / {mmss(minutes * 60)}</span>;
 }
 
+/** Rasmni brauzerda kichraytiradi (eng uzun tomoni 1600px, JPEG) — server cheklovidan oshmasligi uchun. */
+async function shrink(file: File): Promise<{ mime: "image/jpeg"; data: string }> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("Rasm ochilmadi. JPG yoki PNG rasm tanlang.")); i.src = url; });
+    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+    const ctx = c.getContext("2d");
+    if (!ctx) throw new Error("Rasmni qayta ishlab bo'lmadi.");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    return { mime: "image/jpeg", data: c.toDataURL("image/jpeg", 0.85).split(",")[1] };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function PhotoReader({ hasText, onText }: { hasText: boolean; onText: (t: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const read = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    if (files.length > 4) { setMsg({ ok: false, text: "Ko'pi bilan 4 ta rasm tanlang." }); return; }
+    if (hasText && !window.confirm("Maydondagi matn rasmdagi matn bilan almashtiriladi. Davom etasizmi?")) return;
+    setBusy(true); setMsg(null);
+    try {
+      const images = [];
+      for (const f of Array.from(files)) images.push(await shrink(f));
+      const r = await api<{ text: string; wordCount: number }>("/api/ocr", { method: "POST", body: { images } });
+      onText(r.text);
+      setMsg({ ok: true, text: `Rasmdan ${r.wordCount} ta so'z o'qildi. Tekshirishdan oldin daftar bilan solishtiring: AI ba'zi so'zlarni noto'g'ri o'qishi mumkin. [؟] — o'qib bo'lmagan so'z.` });
+    } catch (x) {
+      setMsg({ ok: false, text: (x as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="grid gap-2">
+      <label className={`btn-ghost btn-sm w-fit cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
+        {busy ? "Rasm o'qilmoqda…" : "📷 Daftar rasmidan o'qish"}
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/*" multiple className="sr-only" disabled={busy}
+          onChange={(e) => { read(e.target.files); e.target.value = ""; }} />
+      </label>
+      <p className="text-xs text-ink-muted">1–4 ta sahifa rasmini tartib bilan tanlang. AI matnni xatolari bilan, tuzatmasdan ko&apos;chiradi.</p>
+      {msg && <div className={msg.ok ? "notice-ok" : "notice-err"} role="status">{msg.text}</div>}
+    </div>
+  );
+}
+
 function PartEditor({ k, d, onChange }: { k: PartType; d: Draft; onChange: (d: Draft) => void }) {
   const T = TYPES[k];
   const n = countWords(d.text);
@@ -56,6 +107,7 @@ function PartEditor({ k, d, onChange }: { k: PartType; d: Draft; onChange: (d: D
         )}
       </div>
       {!d.topic && <p className="text-sm text-ink-muted">Mavzu kiritilmasa, matnning mavzuga mosligini ishonchli baholab bo&apos;lmaydi.</p>}
+      <PhotoReader hasText={!!d.text.trim()} onText={(t) => onChange({ ...d, text: t, startedAt: d.startedAt ?? Date.now() })} />
       <label className="label" htmlFor={`ta-${k}`}>Arabcha matn
         <textarea id={`ta-${k}`} dir="rtl" lang="ar" spellCheck={false} className="input min-h-[260px] resize-y text-right font-ar text-[21px] leading-[2]"
           value={d.text} placeholder={k === "letter" ? "اكتب رسالتك هنا…" : "اكتب إنشاءك هنا…"}
@@ -135,7 +187,7 @@ export default function CheckForm({ mode }: { mode: Mode }) {
           <input id="sname" className="input" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
         </label>
       </div>
-      {parts.map((k) => <PartEditor key={k} k={k} d={drafts[k]} onChange={(d) => setDrafts({ ...drafts, [k]: d })} />)}
+      {parts.map((k) => <PartEditor key={k} k={k} d={drafts[k]} onChange={(d) => setDrafts((prev) => (prev ? { ...prev, [k]: d } : prev))} />)}
       {err && <div className="notice-err" role="alert">{err}</div>}
       <div className="flex flex-wrap gap-3">
         <button type="button" className="btn" onClick={submit}>Tekshirish</button>

@@ -87,8 +87,12 @@ async function body(r) { return r.json(); }
   await t("150 so'zli xat -> 5/5, 250 so'zli insho -> 10/10", () => {
     eq(S.wordScore(150, 150, 5), 5); eq(S.wordScore(250, 250, 10), 10);
   });
-  await t("chegaralar: 16% -> 60%, 28% -> 20%, 44% -> 0", () => {
-    eq(S.wordScore(210, 250, 10), 6); eq(S.wordScore(180, 250, 10), 2); eq(S.wordScore(140, 250, 10), 0);
+  await t("yumshoq chegaralar: 16%->80%, 28%->60%, 36%->40%, 47.6%->20%, 56%->0", () => {
+    eq(S.wordScore(210, 250, 10), 8); eq(S.wordScore(180, 250, 10), 6); eq(S.wordScore(160, 250, 10), 4);
+    eq(S.wordScore(131, 250, 10), 2); eq(S.wordScore(110, 250, 10), 0); eq(S.wordScore(142, 150, 5), 5);
+  });
+  await t("qoida matni sozlamadan olinadi", () => {
+    eq(S.bandsText(null), "±10% gacha — to'liq ball, 10–20% — 80%, 20–30% — 60%, 30–40% — 40%, 40–50% — 20%, 50% dan ortiq — 0");
   });
 
   console.log("Autentifikatsiya va xavfsizlik");
@@ -345,6 +349,77 @@ async function body(r) { return r.json(); }
     eq(r.status, 200); eq((await r.json()).user.role, "TEACHER");
     eq((await H.login(req("POST", "/api/auth/login", { login: "ustoz", password: "MaxfiyParol1" }), d)).status, 200);
     eq(d.repo.users.length, 1);
+  });
+
+  console.log("Rasmdan o'qish (OCR)");
+  const { createGeminiOcr, createClaudeOcr, OCR_PROMPT } = require(B + "/ocr.js");
+  const IMG = { mime: "image/jpeg", data: "A".repeat(200) };
+  await t("OCR: o'quvchi xatolarini tuzatmaslik ko'rsatmasi bor", () => {
+    assert(OCR_PROMPT.includes("Do NOT correct anything"));
+  });
+  await t("OCR (Gemini): rasm inlineData bilan yuboriladi, matn tozalanadi", async () => {
+    let sent;
+    const o = createGeminiOcr({ apiKey: "g", model: "gm", fetchImpl: async (u, init) => { sent = JSON.parse(init.body); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "o'ylash", thought: true }, { text: "```\nالرياضة مفيدة   \n\n\n\nوله أهمية\n```" }] } }] }), { status: 200 }); } });
+    const text = await o([IMG, IMG]);
+    eq(text, "الرياضة مفيدة\n\nوله أهمية");
+    eq(sent.contents[0].parts.filter((p) => p.inlineData).length, 2);
+    assert(!("temperature" in sent.generationConfig));
+  });
+  await t("OCR (Claude): base64 image bloklari", async () => {
+    let sent;
+    const o = createClaudeOcr({ apiKey: "c", model: "cm", fetchImpl: async (u, init) => { sent = JSON.parse(init.body); return new Response(JSON.stringify({ content: [{ type: "text", text: "نص" }] }), { status: 200 }); } });
+    eq(await o([IMG]), "نص");
+    eq(sent.messages[0].content[0].type, "image"); eq(sent.messages[0].content[0].source.media_type, "image/jpeg");
+  });
+  await t("OCR: bo'sh javob -> tushunarli xato", async () => {
+    const o = createGeminiOcr({ apiKey: "g", model: "gm", fetchImpl: async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "  " }] } }] }), { status: 200 }) });
+    let e; try { await o([IMG]); } catch (x) { e = x; } assert(e && e.userMessage.includes("aniqroq"));
+  });
+  await t("OCR endpoint: login, validatsiya, limit, natija", async () => {
+    const calls = [];
+    const d = deps(undefined, { ocr: async (imgs) => { calls.push(imgs.length); return "الرياضة مفيدة للصحة"; }, ocrLimiter: new RateLimiter(2, 3600000) });
+    eq((await H.ocr(req("POST", "/api/ocr", { images: [IMG] }), d)).status, 401);
+    const ck = await signup(d);
+    eq((await H.ocr(req("POST", "/api/ocr", { images: [] }, ck), d)).status, 400);
+    eq((await H.ocr(req("POST", "/api/ocr", { images: [{ mime: "image/gif", data: "A".repeat(200) }] }, ck), d)).status, 400);
+    eq((await H.ocr(req("POST", "/api/ocr", { images: [IMG, IMG, IMG, IMG, IMG] }, ck), d)).status, 400);
+    const r = await H.ocr(req("POST", "/api/ocr", { images: [IMG, IMG] }, ck), d);
+    eq(r.status, 200); const b = await r.json(); eq(b.text, "الرياضة مفيدة للصحة"); eq(b.wordCount, 3); eq(calls, [2]);
+    await H.ocr(req("POST", "/api/ocr", { images: [IMG] }, ck), d);
+    eq((await H.ocr(req("POST", "/api/ocr", { images: [IMG] }, ck), d)).status, 429);
+  });
+  await t("OCR: AI xatosi tushunarli qaytadi", async () => {
+    const d = deps(undefined, { ocr: async () => { throw new AIRequestError("Gemini'ning bepul limiti tugadi.", 429); } });
+    const ck = await signup(d);
+    const r = await H.ocr(req("POST", "/api/ocr", { images: [IMG] }, ck), d);
+    eq(r.status, 429); assert((await r.json()).error.includes("limiti"));
+  });
+  await t("natijada qo'llangan so'z chegaralari saqlanadi", async () => {
+    const d = deps(); const ck = await signup(d);
+    const s = (await (await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: ESSAY_250 } }, ck), d)).json()).submission;
+    eq(s.parts.essay.wordSettings.bands.length, 5);
+  });
+
+  console.log("Parollar");
+  await t("o'qituvchi o'quvchi parolini tiklaydi; o'quvchi bu amalni qila olmaydi", async () => {
+    const d = deps(); const st = await signup(d, "ali"); const st2 = await signup(d, "vali"); const tc = await signup(d, "ustoz", "TEACHER");
+    const ali = d.repo.users.find((u) => u.login === "ali");
+    eq((await H.resetStudentPassword(req("POST", `/api/teacher/students/${ali.id}/password`, { password: "yangiParol1" }, st2), d, { id: ali.id })).status, 403);
+    eq((await H.resetStudentPassword(req("POST", "/x", { password: "qisqa" }, tc), d, { id: ali.id })).status, 400);
+    eq((await H.resetStudentPassword(req("POST", "/x", { password: "yangiParol1" }, tc), d, { id: "yoq" })).status, 404);
+    eq((await H.resetStudentPassword(req("POST", "/x", { password: "yangiParol1" }, tc), d, { id: ali.id })).status, 200);
+    eq((await H.login(req("POST", "/api/auth/login", { login: "ali", password: "yangiParol1" }), d)).status, 200);
+    eq((await H.login(req("POST", "/api/auth/login", { login: "ali", password: "parol12345" }), d)).status, 401);
+  });
+  await t("o'qituvchi boshqa o'qituvchi parolini o'zgartira olmaydi", async () => {
+    const d = deps(); const tc = await signup(d, "ustoz", "TEACHER");
+    eq((await H.resetStudentPassword(req("POST", "/x", { password: "yangiParol1" }, tc), d, { id: "t0" })).status, 404);
+  });
+  await t("foydalanuvchi o'z parolini o'zgartiradi (eski parol bilan)", async () => {
+    const d = deps(); const ck = await signup(d, "ali");
+    eq((await H.changeOwnPassword(req("POST", "/api/account/password", { current: "xato123456", next: "yangiParol1" }, ck), d)).status, 400);
+    eq((await H.changeOwnPassword(req("POST", "/api/account/password", { current: "parol12345", next: "yangiParol1" }, ck), d)).status, 200);
+    eq((await H.login(req("POST", "/api/auth/login", { login: "ali", password: "yangiParol1" }), d)).status, 200);
   });
 
   console.log(`\nNatija: ${pass} o'tdi, ${failN} xato`);

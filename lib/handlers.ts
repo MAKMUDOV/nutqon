@@ -9,6 +9,7 @@ import { validateAI, AIFormatError } from "./validate";
 import { AIRequestError, type AIClient } from "./claude";
 import { SESSION_COOKIE, clearCookie, createSessionToken, getCookie, hashPassword, readSessionToken, sessionCookie, verifyPassword } from "./auth";
 import { RateLimiter } from "./rateLimit";
+import type { OcrClient, OcrImage } from "./ocr";
 import { buildStats } from "./stats";
 import type { Repo } from "./repo";
 import type { PartResult, PublicUser, Submission, TeacherReview, User } from "./types";
@@ -21,6 +22,8 @@ export type Deps = {
   secureCookies: boolean;
   allowRegistration: boolean;
   checkLimiter: RateLimiter;
+  ocr?: OcrClient;
+  ocrLimiter?: RateLimiter;
   loginLimiter: RateLimiter;
   /** .env dagi TEACHER_LOGIN / TEACHER_PASSWORD: shu login bilan birinchi kirishda o'qituvchi hisobi avtomatik yaratiladi. */
   bootstrapTeacher?: { login: string; password: string; name: string } | null;
@@ -194,7 +197,7 @@ async function assessPart(k: PartType, input: z.infer<typeof partInput>, setting
   return {
     type: k, topic: input.topic.trim(), kind: k === "letter" ? input.kind : null,
     text, wordCount: wc, target: T.target, minutes: input.minutes ?? null,
-    ai, scores, total: sumScores(scores, k), max: T.max
+    ai, scores, total: sumScores(scores, k), max: T.max, wordSettings: settings
   };
 }
 
@@ -285,4 +288,58 @@ export const putSettings = wrap(async (req, d) => {
   const s = normSettings(body);
   await d.repo.saveSettings(s);
   return json({ settings: s });
+});
+
+// ---------- rasmdan matn o'qish (OCR) ----------
+const ocrSchema = z.object({
+  images: z.array(z.object({
+    mime: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    data: z.string().min(100).max(3_000_000).regex(/^[A-Za-z0-9+/=]+$/, "rasm base64 emas")
+  })).min(1).max(4)
+});
+
+export const ocr = wrap(async (req, d) => {
+  const user = await requireUser(req, d);
+  if (!d.ocr) return fail(501, "Rasmdan o'qish bu serverda sozlanmagan.");
+  const len = Number(req.headers.get("content-length") || 0);
+  if (len > 4_200_000) return fail(413, "Rasmlar hajmi juda katta. Kamroq yoki kichikroq rasm yuboring.");
+  let raw: unknown;
+  try { raw = await req.json(); } catch { return fail(400, "So'rov JSON'i noto'g'ri."); }
+  const p = ocrSchema.safeParse(raw);
+  if (!p.success) return fail(400, "1 tadan 4 tagacha JPG, PNG yoki WEBP rasm yuboring.");
+  const total = p.data.images.reduce((a, im) => a + im.data.length, 0);
+  if (total > 4_000_000) return fail(413, "Rasmlar hajmi juda katta. Kamroq yoki kichikroq rasm yuboring.");
+  if (d.ocrLimiter && !d.ocrLimiter.take("ocr:" + user.id)) return fail(429, "Rasmdan o'qish limiti tugadi. Birozdan keyin qayta urinib ko'ring.");
+  try {
+    const text = await d.ocr(p.data.images as OcrImage[]);
+    return json({ text, wordCount: countWords(text) });
+  } catch (e) {
+    if (e instanceof AIRequestError) return fail(e.status, e.userMessage);
+    throw e;
+  }
+});
+
+// ---------- parollar ----------
+const pw = z.string().min(8, "Parol kamida 8 belgi bo'lsin").max(200);
+
+/** O'qituvchi o'quvchining parolini yangilaydi (o'quvchi parolini unutsa). */
+export const resetStudentPassword = wrap(async (req, d, params) => {
+  await requireUser(req, d, "TEACHER");
+  const p = z.object({ password: pw }).safeParse(await readJson(req));
+  if (!p.success) return fail(400, p.error.issues[0].message);
+  const target = await d.repo.findUserById(params.id);
+  if (!target || target.role !== "STUDENT") return fail(404, "O'quvchi topilmadi.");
+  await d.repo.setPassword(target.id, hashPassword(p.data.password));
+  return json({ ok: true });
+});
+
+/** Foydalanuvchi o'z parolini o'zgartiradi (eski parol talab qilinadi). */
+export const changeOwnPassword = wrap(async (req, d) => {
+  const user = await requireUser(req, d);
+  const p = z.object({ current: z.string().max(200), next: pw }).safeParse(await readJson(req));
+  if (!p.success) return fail(400, p.error.issues[0].message);
+  if (!d.loginLimiter.take("pw:" + user.id)) return fail(429, "Juda ko'p urinish. Bir daqiqadan keyin qayta urinib ko'ring.");
+  if (!verifyPassword(p.data.current, user.passwordHash)) return fail(400, "Joriy parol noto'g'ri.");
+  await d.repo.setPassword(user.id, hashPassword(p.data.next));
+  return json({ ok: true });
 });

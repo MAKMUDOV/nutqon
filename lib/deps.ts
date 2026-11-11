@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { createClaudeClient } from "./claude";
 import { createGeminiClient } from "./gemini";
+import { createClaudeOcr, createGeminiOcr } from "./ocr";
 import { RateLimiter } from "./rateLimit";
 import { PrismaRepo } from "./repo.prisma";
 import type { Deps } from "./handlers";
@@ -24,6 +25,10 @@ export function getDeps(): Deps {
     ai: provider === "gemini"
       ? createGeminiClient({ apiKey: process.env.GEMINI_API_KEY, model })
       : createClaudeClient({ apiKey: process.env.ANTHROPIC_API_KEY, model }),
+    ocr: provider === "gemini"
+      ? createGeminiOcr({ apiKey: process.env.GEMINI_API_KEY, model })
+      : createClaudeOcr({ apiKey: process.env.ANTHROPIC_API_KEY, model }),
+    ocrLimiter: new RateLimiter(Number(process.env.OCR_PER_HOUR || 20), 3600_000),
     model,
     secret,
     secureCookies: process.env.NODE_ENV === "production" && process.env.INSECURE_COOKIES !== "true",

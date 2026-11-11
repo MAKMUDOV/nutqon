@@ -30,6 +30,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
       <label className="label" htmlFor="password">Parol<input id="password" type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} autoComplete={mode === "login" ? "current-password" : "new-password"} /></label>
       {err && <div className="notice-err" role="alert">{err}</div>}
       <button className="btn" disabled={busy}>{busy ? "Kuting…" : mode === "login" ? "Kirish" : "Ro'yxatdan o'tish"}</button>
+      {mode === "login" && <p className="text-xs text-ink-muted">Parolni unutdingizmi? O&apos;qituvchingizga ayting — u yangi parol qo&apos;yib beradi.</p>}
       <p className="text-sm text-ink-muted">
         {mode === "login" ? <>Hisobingiz yo&apos;qmi? <Link className="text-green underline" href="/register">Ro&apos;yxatdan o&apos;ting</Link></> : <>Hisobingiz bormi? <Link className="text-green underline" href="/login">Kiring</Link></>}
       </p>

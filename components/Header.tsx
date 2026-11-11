@@ -20,13 +20,14 @@ export default function Header() {
           {item("/", "Bosh sahifa")}
           {user && item("/history", "Mening natijalarim")}
           {user?.role === "TEACHER" && item("/teacher", "O'qituvchi paneli")}
+          {user && item("/account", "Hisobim")}
           {user ? (
             <button
               type="button"
               className="rounded-full border border-white/40 px-3.5 py-1.5 text-sm hover:border-gold"
               onClick={async () => { await api("/api/auth/logout", { method: "POST", body: {} }).catch(() => null); location.href = "/login"; }}
             >
-              Chiqish ({user.name})
+              Chiqish
             </button>
           ) : (
             item("/login", "Kirish")

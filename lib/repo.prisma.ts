@@ -36,6 +36,9 @@ export class PrismaRepo implements Repo {
   async listUsers(role?: Role) {
     return (await prisma.user.findMany({ where: role ? { role } : {}, orderBy: { createdAt: "desc" } })).map(toUser);
   }
+  async setPassword(id: string, passwordHash: string) {
+    try { await prisma.user.update({ where: { id }, data: { passwordHash } }); return true; } catch { return false; }
+  }
   async createSubmission(s: Submission) {
     const r = await prisma.submission.create({
       data: {

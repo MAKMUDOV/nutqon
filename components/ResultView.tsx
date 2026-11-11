@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, dt, fmt, useMe } from "@/lib/client";
-import { CRITERIA, TYPES, pct, round05, sumScores, wordMessage, type PartType, type Scores } from "@/lib/scoring";
+import { CRITERIA, TYPES, bandsText, pct, round05, sumScores, wordMessage, type PartType, type Scores } from "@/lib/scoring";
 import { effTotal, partEff } from "@/lib/stats";
 import type { FoundError, PartResult, Submission } from "@/lib/types";
 
@@ -110,7 +110,7 @@ function PartSection({ s, k, showTitle, onPick }: { s: Submission; k: PartType; 
               ) : (
                 <>
                   <p className="text-sm">Dastur hisobladi: {p.wordCount} so&apos;z, maqsad {p.target}. Farq: {fmt((Math.abs(p.wordCount - p.target) / p.target) * 100)}%. {wordMessage(p.wordCount, p.target)}</p>
-                  <p className="text-sm text-ink-muted">Ichki qoida: ±10% gacha — to&apos;liq ball, 10–20% — 60%, 20–30% — 20%, 30% dan ortiq — 0 (o&apos;qituvchi sozlashi mumkin).</p>
+                  <p className="text-sm text-ink-muted">Ichki qoida (rasmiy CEFR emas): {p.wordSettings ? bandsText(p.wordSettings) : "±10% gacha — to'liq ball, 10–20% — 60%, 20–30% — 20%, 30% dan ortiq — 0"}.</p>
                 </>
               )}
             </div>

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, dt, fmt, useMe } from "@/lib/client";
 import { TrendChart, WorksTable, type Row } from "@/components/Lists";
-import type { Settings } from "@/lib/scoring";
+import { DEFAULT_SETTINGS, bandsText, type Settings } from "@/lib/scoring";
 
 type Stats = {
   count: number; avgPercent: number | null; letterAvg: number | null; essayAvg: number | null;
@@ -79,25 +79,52 @@ function SettingsView() {
   const [msg, setMsg] = useState("");
   useEffect(() => { api<{ settings: Settings }>("/api/settings").then((d) => setS(d.settings), (e) => setMsg(e.message)); }, []);
   if (!s) return <div className="card text-ink-muted">{msg || "Yuklanmoqda…"}</div>;
-  const bands = [...s.bands, { upTo: 30, pct: 0 }, { upTo: 30, pct: 0 }].slice(0, 3);
-  const setBand = (i: number, key: "upTo" | "pct", v: number) => { const b = bands.map((x) => ({ ...x })); b[i][key] = v; setS({ ...s, bands: b }); };
+  type Row = { upTo: number | ""; pct: number | "" };
+  const rows: Row[] = [...s.bands, ...Array(5).fill({ upTo: "", pct: "" })].slice(0, 5);
+  const setBand = (i: number, key: "upTo" | "pct", v: string) => {
+    const b = rows.map((x) => ({ ...x }));
+    b[i][key] = v === "" ? "" : Number(v);
+    setS({ ...s, bands: b as unknown as Settings["bands"] });
+  };
+  const bands = rows.filter((r) => r.upTo !== "" && r.pct !== "").map((r) => ({ upTo: Number(r.upTo), pct: Number(r.pct) }));
   return (
     <div className="card grid max-w-2xl gap-4">
       <h3 className="text-lg">So&apos;zlar soni bo&apos;yicha baholash chegaralari</h3>
-      <p className="text-sm text-ink-muted">Bu ichki qoida, rasmiy CEFR qoidasi emas. Maqsaddan farq chegaralardan oshsa, 0 ball qo&apos;yiladi. Ballar 0,5 aniqlikda yaxlitlanadi.</p>
-      {bands.map((b, i) => (
+      <p className="text-sm text-ink-muted">Bu ichki qoida, rasmiy CEFR qoidasi emas. Har qatorda: maqsaddan farq shu foizgacha bo&apos;lsa, mezon maksimal ballining qancha foizi beriladi. Oxirgi chegaradan oshsa — 0. Keraksiz qatorni bo&apos;sh qoldiring. Ballar 0,5 aniqlikda yaxlitlanadi.</p>
+      {rows.map((b, i) => (
         <div key={i} className="flex flex-wrap gap-3">
-          <label className="grid gap-1 text-sm" htmlFor={`bu${i}`}>Farq (%) gacha<input id={`bu${i}`} type="number" min={0} max={100} className="input w-24 text-center" value={b.upTo} onChange={(e) => setBand(i, "upTo", Number(e.target.value))} /></label>
-          <label className="grid gap-1 text-sm" htmlFor={`bp${i}`}>Maks. ballning %<input id={`bp${i}`} type="number" min={0} max={100} step={5} className="input w-24 text-center" value={b.pct} onChange={(e) => setBand(i, "pct", Number(e.target.value))} /></label>
+          <label className="grid gap-1 text-sm" htmlFor={`bu${i}`}>Farq (%) gacha<input id={`bu${i}`} type="number" min={0} max={100} className="input w-24 text-center" value={b.upTo} onChange={(e) => setBand(i, "upTo", e.target.value)} /></label>
+          <label className="grid gap-1 text-sm" htmlFor={`bp${i}`}>Maks. ballning %<input id={`bp${i}`} type="number" min={0} max={100} step={5} className="input w-24 text-center" value={b.pct} onChange={(e) => setBand(i, "pct", e.target.value)} /></label>
         </div>
       ))}
+      <p className="text-sm"><b>Natija: </b>{bands.length ? bandsText({ bands, penalizeOver: s.penalizeOver }) : "kamida bitta qator to'ldiring"}</p>
       <label className="flex items-center gap-2 text-sm" htmlFor="pover"><input id="pover" type="checkbox" checked={s.penalizeOver} onChange={(e) => setS({ ...s, penalizeOver: e.target.checked })} />Maqsaddan ortiq so&apos;z uchun ham ball kamaytirilsin</label>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn btn-sm" onClick={async () => { setMsg("Saqlanmoqda…"); try { const r = await api<{ settings: Settings }>("/api/settings", { method: "PUT", body: { ...s, bands } }); setS(r.settings); setMsg("Saqlandi. Yangi tekshiruvlarga qo'llanadi."); } catch (x) { setMsg((x as Error).message); } }}>Saqlash</button>
-        <button type="button" className="btn-ghost btn-sm" onClick={() => setS({ bands: [{ upTo: 10, pct: 100 }, { upTo: 20, pct: 60 }, { upTo: 30, pct: 20 }], penalizeOver: true })}>Standartga qaytarish</button>
+        <button type="button" className="btn-ghost btn-sm" onClick={() => setS(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)))}>Standartga qaytarish</button>
         <span className="text-sm text-ink-muted" role="status">{msg}</span>
       </div>
     </div>
+  );
+}
+
+function ResetPassword({ id, name }: { id: string; name: string }) {
+  const [pw, setPw] = useState("");
+  const [msg, setMsg] = useState("");
+  return (
+    <form className="card grid gap-3" onSubmit={async (e) => {
+      e.preventDefault(); setMsg("Saqlanmoqda…");
+      try { await api(`/api/teacher/students/${id}/password`, { method: "POST", body: { password: pw } }); setMsg(`Yangi parol saqlandi. Uni ${name}ga bering.`); setPw(""); }
+      catch (x) { setMsg((x as Error).message); }
+    }}>
+      <h3 className="text-lg">Parolni tiklash</h3>
+      <p className="text-sm text-ink-muted">O&apos;quvchi parolini unutgan bo&apos;lsa, yangi parol qo&apos;ying va unga ayting. Eski parol ishlamay qoladi.</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="label" htmlFor="rp">Yangi parol (8+)<input id="rp" className="input w-56" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="off" /></label>
+        <button className="btn btn-sm">Saqlash</button>
+      </div>
+      {msg && <p className="text-sm text-ink-muted" role="status">{msg}</p>}
+    </form>
   );
 }
 
@@ -163,6 +190,7 @@ export default function TeacherPage() {
           <h2 className="text-2xl">{st?.name}</h2>
           {stRows.length >= 2 && <div className="card"><h3 className="mb-2 text-lg">Natijalarning vaqt bo&apos;yicha o&apos;zgarishi (%)</h3><TrendChart rows={stRows} /></div>}
           <div className="card"><WorksTable rows={stRows} /></div>
+          {student && <ResetPassword key={student} id={student} name={st?.name || "o'quvchi"} />}
         </>
       )}
       {stats && tab === "works" && <div className="card"><WorksTable rows={rows} withName /></div>}

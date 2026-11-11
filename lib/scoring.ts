@@ -24,7 +24,8 @@ export const GRAND_MAX = 75;
 export type Band = { upTo: number; pct: number };
 export type Settings = { bands: Band[]; penalizeOver: boolean };
 export const DEFAULT_SETTINGS: Settings = {
-  bands: [{ upTo: 10, pct: 100 }, { upTo: 20, pct: 60 }, { upTo: 30, pct: 20 }],
+  // Ichki qoida (rasmiy CEFR emas): maqsaddan farq foizi → maksimal ballning foizi. 50% dan ortiq farq — 0.
+  bands: [{ upTo: 10, pct: 100 }, { upTo: 20, pct: 80 }, { upTo: 30, pct: 60 }, { upTo: 40, pct: 40 }, { upTo: 50, pct: 20 }],
   penalizeOver: true
 };
 
@@ -75,6 +76,19 @@ export function wordScore(count: number, target: number, max: number, settings?:
   const dev = (Math.abs(count - target) / target) * 100;
   for (const b of st.bands) if (dev <= b.upTo + 1e-9) return round05((max * b.pct) / 100);
   return 0;
+}
+
+/** Qoidaning o'qiladigan matni, masalan: "±10% gacha — 100%, 10–20% — 80%, … 50% dan ortiq — 0". */
+export function bandsText(settings?: Settings | null): string {
+  const st = normSettings(settings);
+  let prev = 0;
+  const parts = st.bands.map((b, i) => {
+    const s = i === 0 ? `±${b.upTo}% gacha — ${b.pct === 100 ? "to'liq ball" : b.pct + "%"}` : `${prev}–${b.upTo}% — ${b.pct}%`;
+    prev = b.upTo;
+    return s;
+  });
+  parts.push(`${prev}% dan ortiq — 0`);
+  return parts.join(", ") + (st.penalizeOver ? "" : " (ortiqcha so'z uchun ball kamaytirilmaydi)");
 }
 
 export function wordMessage(count: number, target: number): string {

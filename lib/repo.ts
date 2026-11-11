@@ -7,6 +7,7 @@ export interface Repo {
   findUserByLogin(login: string): Promise<User | null>;
   findUserById(id: string): Promise<User | null>;
   listUsers(role?: Role): Promise<User[]>;
+  setPassword(id: string, passwordHash: string): Promise<boolean>;
   createSubmission(s: Submission): Promise<Submission>;
   getSubmission(id: string): Promise<Submission | null>;
   listSubmissions(q: { userId?: string; limit?: number }): Promise<Submission[]>;
@@ -30,6 +31,7 @@ export class MemoryRepo implements Repo {
   async findUserByLogin(login: string) { const u = this.users.find((x) => x.login === login); return u ? this.clone(u) : null; }
   async findUserById(id: string) { const u = this.users.find((x) => x.id === id); return u ? this.clone(u) : null; }
   async listUsers(role?: Role) { return this.clone(this.users.filter((u) => !role || u.role === role)); }
+  async setPassword(id: string, passwordHash: string) { const u = this.users.find((x) => x.id === id); if (!u) return false; u.passwordHash = passwordHash; return true; }
   async createSubmission(s: Submission) { this.subs.push(this.clone(s)); return this.clone(s); }
   async getSubmission(id: string) { const s = this.subs.find((x) => x.id === id); return s ? this.clone(s) : null; }
   async listSubmissions(q: { userId?: string; limit?: number }) {
