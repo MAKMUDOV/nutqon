@@ -22,11 +22,21 @@ export type AICriterion = (typeof AI_CRITERIA)[number];
 export const GRAND_MAX = 75;
 
 export type Band = { upTo: number; pct: number };
-export type Settings = { bands: Band[]; penalizeOver: boolean };
+export type Settings = {
+  bands: Band[];
+  penalizeOver: boolean;
+  /** Har bir o'quvchiga kunlik tekshiruvlar soni (standart limit) */
+  dailyChecks?: number;
+  /** Har bir o'quvchiga kunlik rasmdan o'qishlar soni */
+  dailyOcr?: number;
+};
+export const DEFAULT_LIMITS = { dailyChecks: 3, dailyOcr: 8 };
 export const DEFAULT_SETTINGS: Settings = {
   // Ichki qoida (rasmiy CEFR emas): maqsaddan farq foizi → maksimal ballning foizi. 50% dan ortiq farq — 0.
   bands: [{ upTo: 10, pct: 100 }, { upTo: 20, pct: 80 }, { upTo: 30, pct: 60 }, { upTo: 40, pct: 40 }, { upTo: 50, pct: 20 }],
-  penalizeOver: true
+  penalizeOver: true,
+  dailyChecks: 3,
+  dailyOcr: 8
 };
 
 const TASHKEEL_RE = /[ؐ-ًؚ-ٰٟۖ-ۭـ]/;
@@ -66,7 +76,13 @@ export function normSettings(s: unknown): Settings {
     .filter((b) => isFinite(b.upTo) && isFinite(b.pct) && b.upTo >= 0 && b.upTo <= 100 && b.pct >= 0 && b.pct <= 100)
     .sort((a, b) => a.upTo - b.upTo)
     .slice(0, 6);
-  return { bands: bands.length ? bands : DEFAULT_SETTINGS.bands, penalizeOver: src.penalizeOver !== false };
+  const lim = (v: unknown, d: number) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n >= 0 && n <= 1000 ? n : d; };
+  return {
+    bands: bands.length ? bands : DEFAULT_SETTINGS.bands,
+    penalizeOver: src.penalizeOver !== false,
+    dailyChecks: lim(src.dailyChecks, DEFAULT_LIMITS.dailyChecks),
+    dailyOcr: lim(src.dailyOcr, DEFAULT_LIMITS.dailyOcr)
+  };
 }
 
 export function wordScore(count: number, target: number, max: number, settings?: Settings | null): number {
@@ -186,4 +202,9 @@ export function applyCorrections(text: string, errors: { start: number; end: num
     pos = e.end;
   }
   return out + text.slice(pos);
+}
+
+/** O'zbekiston vaqti (UTC+5) bo'yicha bugungi sana — kunlik limitlar shu kunda yangilanadi. */
+export function tashkentDay(now = Date.now()): string {
+  return new Date(now + 5 * 3600_000).toISOString().slice(0, 10);
 }

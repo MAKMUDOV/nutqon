@@ -415,7 +415,7 @@ async function body(r) { return r.json(); }
   await t("tekshiruv limiti (rate limit)", async () => {
     const d = deps(undefined, { checkLimiter: new RateLimiter(1, 3600000) }); const ck = await signup(d);
     eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: ESSAY_250 } }, ck), d)).status, 201);
-    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: ESSAY_250 } }, ck), d)).status, 429);
+    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(240) } }, ck), d)).status, 429);
   });
   await t("ro'yxatdan o'tish yopiq bo'lsa, o'qituvchi hisob yaratadi", async () => {
     const d = deps(undefined, { allowRegistration: true }); const tc = await signup(d, "ustoz", "TEACHER");
@@ -495,6 +495,66 @@ async function body(r) { return r.json(); }
     const d = deps(); const ck = await signup(d);
     const s = (await (await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: ESSAY_250 } }, ck), d)).json()).submission;
     eq(s.parts.essay.wordSettings.bands.length, 5);
+  });
+
+  console.log("Kunlik limitlar");
+  await t("o'quvchi kunlik standart limitdan (3) oshirib tekshira olmaydi", async () => {
+    const d = deps(); const ck = await signup(d);
+    for (const n of [200, 210, 220]) eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(n) } }, ck), d)).status, 201);
+    const r = await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(230) } }, ck), d);
+    eq(r.status, 429); assert((await r.json()).error.includes("3/3"));
+  });
+  await t("limit tugasa ham aynan o'sha matnni qayta ko'rish mumkin (AI chaqirilmaydi)", async () => {
+    const d = deps(); const ck = await signup(d);
+    await d.repo.saveSettings({ ...S.DEFAULT_SETTINGS, dailyChecks: 1 });
+    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(200) } }, ck), d)).status, 201);
+    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(200) } }, ck), d)).status, 201);
+    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(210) } }, ck), d)).status, 429);
+  });
+  await t("o'qituvchi uchun limit yo'q", async () => {
+    const d = deps(); const tc = await signup(d, "ustoz", "TEACHER");
+    for (const n of [200, 205, 210, 215]) eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(n) } }, tc), d)).status, 201);
+  });
+  await t("shaxsiy limit standartdan ustun; faqat o'qituvchi qo'ya oladi", async () => {
+    const d = deps(); const st = await signup(d, "ali"); const tc = await signup(d, "ustoz", "TEACHER");
+    const ali = d.repo.users.find((u) => u.login === "ali");
+    eq((await H.setStudentLimit(req("POST", "/x", { dailyLimit: 10 }, st), d, { id: ali.id })).status, 403);
+    eq((await H.setStudentLimit(req("POST", "/x", { dailyLimit: -1 }, tc), d, { id: ali.id })).status, 400);
+    eq((await H.setStudentLimit(req("POST", "/x", { dailyLimit: 1 }, tc), d, { id: ali.id })).status, 200);
+    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(200) } }, st), d)).status, 201);
+    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(210) } }, st), d)).status, 429);
+    eq((await H.setStudentLimit(req("POST", "/x", { dailyLimit: null }, tc), d, { id: ali.id })).status, 200);
+    eq((await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(210) } }, st), d)).status, 201);
+  });
+  await t("/api/me qolgan limitni ko'rsatadi; kun almashganda yangilanadi", async () => {
+    let now = new Date("2026-11-12T10:00:00+05:00");
+    const d = deps(undefined, { now: () => now }); const ck = await signup(d);
+    await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(200) } }, ck), d);
+    let m = await (await H.me(req("GET", "/api/me", undefined, ck), d)).json();
+    eq([m.usage.checks.used, m.usage.checks.left, m.usage.ocr.limit], [1, 2, 8]);
+    now = new Date("2026-11-13T00:30:00+05:00");
+    m = await (await H.me(req("GET", "/api/me", undefined, ck), d)).json();
+    eq(m.usage.checks.used, 0);
+  });
+  await t("rasmdan o'qish ham kunlik limitga ega", async () => {
+    const d = deps(undefined, { ocr: async () => "نص عربي هنا" }); const ck = await signup(d);
+    await d.repo.saveSettings({ ...S.DEFAULT_SETTINGS, dailyOcr: 1 });
+    const IMG2 = { mime: "image/jpeg", data: "A".repeat(200) };
+    eq((await H.ocr(req("POST", "/api/ocr", { images: [IMG2] }, ck), d)).status, 200);
+    const r = await H.ocr(req("POST", "/api/ocr", { images: [IMG2] }, ck), d);
+    eq(r.status, 429); assert((await r.json()).error.includes("1/1"));
+  });
+  await t("statistikada bugungi foydalanish va limit ko'rinadi", async () => {
+    const d = deps(); const st = await signup(d, "ali"); const tc = await signup(d, "ustoz", "TEACHER");
+    await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: make(200) } }, st), d);
+    const s = (await (await H.teacherStats(req("GET", "/x", undefined, tc), d)).json()).stats;
+    const ali = s.students.find((x) => x.login === "ali");
+    eq([ali.today.checks, ali.effectiveLimit, ali.dailyLimit], [1, 3, null]);
+  });
+  await t("sozlamalarda limitlar saqlanadi", async () => {
+    const d = deps(); const tc = await signup(d, "ustoz", "TEACHER");
+    const r = await (await H.putSettings(req("PUT", "/api/settings", { ...S.DEFAULT_SETTINGS, dailyChecks: 5, dailyOcr: 12 }, tc), d)).json();
+    eq([r.settings.dailyChecks, r.settings.dailyOcr], [5, 12]);
   });
 
   console.log("Parollar");

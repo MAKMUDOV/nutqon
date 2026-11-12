@@ -1,13 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import type { Repo } from "./repo";
 import type { Settings } from "./scoring";
-import type { Role, Submission, TeacherReview, User } from "./types";
+import type { Role, Submission, TeacherReview, Usage, User } from "./types";
 
 const g = globalThis as unknown as { __nqPrisma?: PrismaClient };
 export const prisma = g.__nqPrisma ?? new PrismaClient();
 if (process.env.NODE_ENV !== "production") g.__nqPrisma = prisma;
 
-type UserRow = { id: string; name: string; login: string; passwordHash: string; role: string; createdAt: Date };
+type UserRow = { id: string; name: string; login: string; passwordHash: string; role: string; createdAt: Date; dailyLimit?: number | null };
 type SubRow = {
   id: string; userId: string; studentName: string; mode: string; createdAt: Date;
   total: number; max: number; percent: number; model: string; partsJson: string; teacherReviewJson: string | null;
@@ -35,6 +35,24 @@ export class PrismaRepo implements Repo {
   }
   async listUsers(role?: Role) {
     return (await prisma.user.findMany({ where: role ? { role } : {}, orderBy: { createdAt: "desc" } })).map(toUser);
+  }
+  async setDailyLimit(id: string, limit: number | null) {
+    try { await prisma.user.update({ where: { id }, data: { dailyLimit: limit } }); return true; } catch { return false; }
+  }
+  async getUsage(userId: string, day: string): Promise<Usage> {
+    const r = await prisma.usage.findUnique({ where: { userId_day: { userId, day } } });
+    return { checks: r?.checks ?? 0, ocr: r?.ocr ?? 0 };
+  }
+  async addUsage(userId: string, day: string, kind: keyof Usage) {
+    await prisma.usage.upsert({
+      where: { userId_day: { userId, day } },
+      create: { userId, day, checks: kind === "checks" ? 1 : 0, ocr: kind === "ocr" ? 1 : 0 },
+      update: { [kind]: { increment: 1 } }
+    });
+  }
+  async usageForDay(day: string) {
+    const rows = await prisma.usage.findMany({ where: { day } });
+    return Object.fromEntries(rows.map((r: { userId: string; checks: number; ocr: number }) => [r.userId, { checks: r.checks, ocr: r.ocr }]));
   }
   async setPassword(id: string, passwordHash: string) {
     try { await prisma.user.update({ where: { id }, data: { passwordHash } }); return true; } catch { return false; }

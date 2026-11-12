@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import {
-  CRITERIA, TYPES, arabicRatio, clamp, countWords, normSettings, overall, round05, sumScores, wordScore,
+  CRITERIA, TYPES, arabicRatio, clamp, countWords, normSettings, overall, round05, sumScores, tashkentDay, wordScore,
   type PartType, type Scores, type Settings
 } from "./scoring";
 import { buildUserMessage } from "./prompt";
@@ -111,8 +111,27 @@ export const logout = wrap(async (_req, d) => json({ ok: true }, 200, { "set-coo
 
 export const me = wrap(async (req, d) => {
   const u = await currentUser(req, d);
-  return json({ user: u ? pub(u) : null, allowRegistration: d.allowRegistration });
+  const usage = u ? await usageInfo(u, d) : null;
+  return json({ user: u ? pub(u) : null, usage, allowRegistration: d.allowRegistration });
 });
+
+// ---------- kunlik limitlar ----------
+export type UsageInfo = { day: string; checks: { used: number; limit: number; left: number }; ocr: { used: number; limit: number; left: number } } | null;
+
+/** O'quvchining bugungi limiti va qolgan soni. O'qituvchi uchun null (cheklanmagan). */
+export async function usageInfo(u: User, d: Deps, settings?: Settings): Promise<UsageInfo> {
+  if (u.role === "TEACHER") return null;
+  const st = settings || normSettings(await d.repo.getSettings());
+  const day = tashkentDay(d.now ? d.now().getTime() : Date.now());
+  const used = await d.repo.getUsage(u.id, day);
+  const checkLimit = u.dailyLimit ?? st.dailyChecks ?? 3;
+  const ocrLimit = st.dailyOcr ?? 8;
+  return {
+    day,
+    checks: { used: used.checks, limit: checkLimit, left: Math.max(0, checkLimit - used.checks) },
+    ocr: { used: used.ocr, limit: ocrLimit, left: Math.max(0, ocrLimit - used.ocr) }
+  };
+}
 
 // ---------- tekshirish ----------
 const partInput = z.object({
@@ -151,9 +170,6 @@ export const check = wrap(async (req, d) => {
     const err = validateText(k, part.text);
     if (err) return fail(400, err);
   }
-  if (!d.checkLimiter.take("check:" + user.id)) {
-    return fail(429, `Tekshiruvlar limiti tugadi. ${Math.ceil(d.checkLimiter.retryAfterSec("check:" + user.id) / 60)} daqiqadan keyin qayta urinib ko'ring.`);
-  }
   const settings = normSettings(await d.repo.getSettings());
   // Izchillik: shu o'quvchi oxirgi 30 kunda aynan shu matnni (shu mavzu bilan) tekshirgan bo'lsa, AI qayta chaqirilmaydi.
   const recent = await d.repo.listSubmissions({ userId: user.id, limit: 50 });
@@ -166,6 +182,15 @@ export const check = wrap(async (req, d) => {
     }
     return undefined;
   };
+  // Kunlik limit: faqat AI chaqiriladigan (yangi) tekshiruvlar hisoblanadi.
+  const needsAI = types.some((k) => !findCached(k));
+  const usage = await usageInfo(user, d, settings);
+  if (needsAI && usage && usage.checks.left <= 0) {
+    return fail(429, `Bugungi tekshiruvlar limiti tugadi (${usage.checks.used}/${usage.checks.limit}). Ertaga yana tekshirishingiz mumkin yoki o'qituvchingizga murojaat qiling.`);
+  }
+  if (needsAI && !d.checkLimiter.take("check:" + user.id)) {
+    return fail(429, `Juda tez-tez tekshiryapsiz. ${Math.ceil(d.checkLimiter.retryAfterSec("check:" + user.id) / 60)} daqiqadan keyin qayta urinib ko'ring.`);
+  }
   let results: PartResult[];
   try {
     results = await Promise.all(types.map((k) => {
@@ -193,6 +218,7 @@ export const check = wrap(async (req, d) => {
     teacherReview: null
   };
   await d.repo.createSubmission(sub);
+  if (needsAI && usage) await d.repo.addUsage(user.id, usage.day, "checks");
   return json({ submission: sub }, 201);
 });
 
@@ -287,8 +313,9 @@ export const review = wrap(async (req, d, params) => {
 // ---------- o'qituvchi ----------
 export const teacherStats = wrap(async (req, d) => {
   await requireUser(req, d, "TEACHER");
-  const [subs, users] = await Promise.all([d.repo.listSubmissions({ limit: 5000 }), d.repo.listUsers()]);
-  return json({ stats: buildStats(subs, users) });
+  const [subs, users, settings] = await Promise.all([d.repo.listSubmissions({ limit: 5000 }), d.repo.listUsers(), d.repo.getSettings()]);
+  const today = await d.repo.usageForDay(tashkentDay(d.now ? d.now().getTime() : Date.now()));
+  return json({ stats: buildStats(subs, users, today, normSettings(settings)) });
 });
 
 export const createStudent = wrap(async (req, d) => {
@@ -332,9 +359,12 @@ export const ocr = wrap(async (req, d) => {
   if (!p.success) return fail(400, "1 tadan 4 tagacha JPG, PNG yoki WEBP rasm yuboring.");
   const total = p.data.images.reduce((a, im) => a + im.data.length, 0);
   if (total > 4_000_000) return fail(413, "Rasmlar hajmi juda katta. Kamroq yoki kichikroq rasm yuboring.");
-  if (d.ocrLimiter && !d.ocrLimiter.take("ocr:" + user.id)) return fail(429, "Rasmdan o'qish limiti tugadi. Birozdan keyin qayta urinib ko'ring.");
+  const usage = await usageInfo(user, d);
+  if (usage && usage.ocr.left <= 0) return fail(429, `Bugungi rasmdan o'qish limiti tugadi (${usage.ocr.used}/${usage.ocr.limit}). Matnni qo'lda kiriting yoki ertaga urinib ko'ring.`);
+  if (d.ocrLimiter && !d.ocrLimiter.take("ocr:" + user.id)) return fail(429, "Juda tez-tez rasm yuboryapsiz. Birozdan keyin qayta urinib ko'ring.");
   try {
     const text = await d.ocr(p.data.images as OcrImage[]);
+    if (usage) await d.repo.addUsage(user.id, usage.day, "ocr");
     return json({ text, wordCount: countWords(text) });
   } catch (e) {
     if (e instanceof AIRequestError) return fail(e.status, e.userMessage);
@@ -365,4 +395,15 @@ export const changeOwnPassword = wrap(async (req, d) => {
   if (!verifyPassword(p.data.current, user.passwordHash)) return fail(400, "Joriy parol noto'g'ri.");
   await d.repo.setPassword(user.id, hashPassword(p.data.next));
   return json({ ok: true });
+});
+
+/** O'qituvchi o'quvchiga shaxsiy kunlik tekshiruv limitini qo'yadi (null — standart limit). */
+export const setStudentLimit = wrap(async (req, d, params) => {
+  await requireUser(req, d, "TEACHER");
+  const p = z.object({ dailyLimit: z.number().int().min(0).max(1000).nullable() }).safeParse(await readJson(req));
+  if (!p.success) return fail(400, "Limit 0 dan 1000 gacha butun son bo'lishi kerak (yoki bo'sh — standart).");
+  const target = await d.repo.findUserById(params.id);
+  if (!target || target.role !== "STUDENT") return fail(404, "O'quvchi topilmadi.");
+  await d.repo.setDailyLimit(target.id, p.data.dailyLimit);
+  return json({ ok: true, dailyLimit: p.data.dailyLimit });
 });

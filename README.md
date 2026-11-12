@@ -59,6 +59,7 @@ npm run dev              # http://localhost:3000
 
 - Uch rejim: xat, insho, to'liq Writing (alohida baholanadi, jami /75 va foiz).
 - **Daftar rasmidan o'qish (OCR):** 1–4 sahifa rasmini yuklang — AI arabcha qo'lyozmani xatolari bilan, tuzatmasdan ko'chiradi. Rasm brauzerda kichraytiriladi; limit `OCR_PER_HOUR` (standart 20).
+- **Kunlik limitlar:** har bir o'quvchiga kuniga standart 3 ta tekshiruv va 8 ta rasmdan o'qish (Sozlamalar'da o'zgartiriladi). Alohida o'quvchiga shaxsiy limit qo'yish mumkin. Hisob bazada (O'zbekiston vaqti bo'yicha kun) yuritiladi; o'qituvchi cheklanmaydi; aynan bir xil matnni qayta ko'rish limitga kirmaydi.
 - **Parollar:** o'qituvchi panelida o'quvchi parolini tiklash; har kim "Hisobim" sahifasida o'z parolini o'zgartiradi.
 - Jonli so'z hisoblagich ("142 / 150 so'z · Yana 8 ta so'z kerak") va vaqt hisoblagich; qoralama brauzerda saqlanadi.
 - Natijalar: ball halqasi, har bir mezon bo'yicha asos, kuchli/zaif tomonlar va tavsiya.
@@ -75,7 +76,7 @@ npm run dev              # http://localhost:3000
 npm test
 ```
 
-55 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
+78 ta server sinovi: so'z hisoblagich, ball chegaralari, auth, spetsifikatsiyadagi 12 holat (soxta AI bilan), Claude API mijozi (soxta fetch bilan), ruxsatlar, o'qituvchi bahosi, sozlamalar, limitlar.
 
 ## Tuzilma
 

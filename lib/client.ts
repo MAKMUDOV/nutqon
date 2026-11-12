@@ -26,16 +26,21 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
   return data as T;
 }
 
+export type Usage = { day: string; checks: { used: number; limit: number; left: number }; ocr: { used: number; limit: number; left: number } } | null;
+
 export function useMe() {
-  const [state, setState] = useState<{ loading: boolean; user: PublicUser | null; allowRegistration: boolean }>({ loading: true, user: null, allowRegistration: true });
+  const [state, setState] = useState<{ loading: boolean; user: PublicUser | null; usage: Usage; allowRegistration: boolean }>({ loading: true, user: null, usage: null, allowRegistration: true });
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
-    api<{ user: PublicUser | null; allowRegistration: boolean }>("/api/me")
-      .then((d) => alive && setState({ loading: false, user: d.user, allowRegistration: d.allowRegistration }))
+    api<{ user: PublicUser | null; usage: Usage; allowRegistration: boolean }>("/api/me")
+      .then((d) => alive && setState({ loading: false, user: d.user, usage: d.usage ?? null, allowRegistration: d.allowRegistration }))
       .catch(() => alive && setState((s) => ({ ...s, loading: false })));
     return () => { alive = false; };
-  }, []);
-  return state;
+  }, [tick]);
+  /** Limitni qayta yuklash (masalan, rasm o'qilgandan keyin) */
+  const refresh = () => setTick((t) => t + 1);
+  return { ...state, refresh };
 }
 
 export const fmt = (n: number) => String(Math.round(n * 10) / 10).replace(".", ",");

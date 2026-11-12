@@ -9,8 +9,11 @@ export type User = {
   passwordHash: string;
   role: Role;
   createdAt: string;
+  /** Shaxsiy kunlik tekshiruv limiti (null — standart limit) */
+  dailyLimit?: number | null;
 };
 export type PublicUser = Omit<User, "passwordHash">;
+export type Usage = { checks: number; ocr: number };
 
 export type ErrorType = "grammar" | "spelling" | "style" | "word_choice";
 export type Severity = "high" | "medium" | "low";

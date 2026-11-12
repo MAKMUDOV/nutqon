@@ -1,5 +1,5 @@
-import { CRITERIA, TYPES, pct, type PartType } from "./scoring";
-import type { Submission, User } from "./types";
+import { CRITERIA, TYPES, pct, type PartType, type Settings } from "./scoring";
+import type { Submission, Usage, User } from "./types";
 
 export const effTotal = (s: Submission) => (s.teacherReview ? s.teacherReview.total : s.total);
 export const partEff = (s: Submission, k: PartType) => s.teacherReview?.parts[k]?.total ?? s.parts[k]?.total ?? 0;
@@ -8,7 +8,7 @@ export const effScores = (s: Submission, k: PartType) => s.teacherReview?.parts[
 const mean = (a: number[]) => (a.length ? Math.round((a.reduce((x, y) => x + y, 0) / a.length) * 10) / 10 : null);
 
 /** O'qituvchi paneli statistikasi (o'qituvchi tuzatgan baho bo'lsa, o'sha olinadi). */
-export function buildStats(subs: Submission[], users: User[]) {
+export function buildStats(subs: Submission[], users: User[], today: Record<string, Usage> = {}, settings?: Settings) {
   const parts = subs.flatMap((s) => (["letter", "essay"] as PartType[]).filter((k) => s.parts[k]).map((k) => ({ s, k })));
   const criteria = CRITERIA.map((c) => ({
     key: c.key, uz: c.uz,
@@ -24,6 +24,9 @@ export function buildStats(subs: Submission[], users: User[]) {
     const mine = subs.filter((s) => s.userId === u.id);
     return {
       id: u.id, name: u.name, login: u.login, count: mine.length,
+      dailyLimit: u.dailyLimit ?? null,
+      effectiveLimit: u.dailyLimit ?? settings?.dailyChecks ?? 3,
+      today: today[u.id] || { checks: 0, ocr: 0 },
       avgPercent: mean(mine.map((s) => pct(effTotal(s), s.max))),
       last: mine[0] ? { id: mine[0].id, total: effTotal(mine[0]), max: mine[0].max, createdAt: mine[0].createdAt } : null
     };

@@ -8,7 +8,7 @@ type Stats = {
   count: number; avgPercent: number | null; letterAvg: number | null; essayAvg: number | null;
   criteria: { key: string; uz: string; avgPercent: number }[];
   topErrors: { category: string; count: number }[];
-  students: { id: string; name: string; login: string; count: number; avgPercent: number | null; last: { id: string; total: number; max: number; createdAt: string } | null }[];
+  students: { id: string; name: string; login: string; count: number; avgPercent: number | null; dailyLimit: number | null; effectiveLimit: number; today: { checks: number; ocr: number }; last: { id: string; total: number; max: number; createdAt: string } | null }[];
 };
 
 const TABS = [["students", "O'quvchilar"], ["works", "Barcha ishlar"], ["stats", "Statistika"], ["settings", "Sozlamalar"]] as const;
@@ -98,6 +98,12 @@ function SettingsView() {
         </div>
       ))}
       <p className="text-sm"><b>Natija: </b>{bands.length ? bandsText({ bands, penalizeOver: s.penalizeOver }) : "kamida bitta qator to'ldiring"}</p>
+      <h3 className="mt-2 text-lg">Kunlik limitlar (har bir o&apos;quvchiga)</h3>
+      <p className="text-sm text-ink-muted">AI xarajati va bepul limitni tejash uchun. Siz (o&apos;qituvchi) cheklanmaysiz. Alohida o&apos;quvchiga boshqa limitni o&apos;quvchi sahifasida qo&apos;yasiz. Aynan bir xil matnni qayta ko&apos;rish limitga kirmaydi.</p>
+      <div className="flex flex-wrap gap-3">
+        <label className="grid gap-1 text-sm" htmlFor="dlc">Tekshiruvlar / kun<input id="dlc" type="number" min={0} max={1000} className="input w-28 text-center" value={s.dailyChecks ?? 3} onChange={(e) => setS({ ...s, dailyChecks: Number(e.target.value) })} /></label>
+        <label className="grid gap-1 text-sm" htmlFor="dlo">Rasmdan o&apos;qish / kun<input id="dlo" type="number" min={0} max={1000} className="input w-28 text-center" value={s.dailyOcr ?? 8} onChange={(e) => setS({ ...s, dailyOcr: Number(e.target.value) })} /></label>
+      </div>
       <label className="flex items-center gap-2 text-sm" htmlFor="pover"><input id="pover" type="checkbox" checked={s.penalizeOver} onChange={(e) => setS({ ...s, penalizeOver: e.target.checked })} />Maqsaddan ortiq so&apos;z uchun ham ball kamaytirilsin</label>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn btn-sm" onClick={async () => { setMsg("Saqlanmoqda…"); try { const r = await api<{ settings: Settings }>("/api/settings", { method: "PUT", body: { ...s, bands } }); setS(r.settings); setMsg("Saqlandi. Yangi tekshiruvlarga qo'llanadi."); } catch (x) { setMsg((x as Error).message); } }}>Saqlash</button>
@@ -105,6 +111,28 @@ function SettingsView() {
         <span className="text-sm text-ink-muted" role="status">{msg}</span>
       </div>
     </div>
+  );
+}
+
+function StudentLimit({ id, current, effective, todayUsed, onSaved }: { id: string; current: number | null; effective: number; todayUsed: number; onSaved: () => void }) {
+  const [v, setV] = useState(current === null ? "" : String(current));
+  const [msg, setMsg] = useState("");
+  const save = async (value: number | null) => {
+    setMsg("Saqlanmoqda…");
+    try { await api(`/api/teacher/students/${id}/limit`, { method: "POST", body: { dailyLimit: value } }); setMsg(value === null ? "Standart limit qo'llanadi." : `Shaxsiy limit: kuniga ${value} ta.`); onSaved(); }
+    catch (x) { setMsg((x as Error).message); }
+  };
+  return (
+    <form className="card grid gap-3" onSubmit={(e) => { e.preventDefault(); save(v.trim() === "" ? null : Number(v)); }}>
+      <h3 className="text-lg">Kunlik tekshiruv limiti</h3>
+      <p className="text-sm text-ink-muted">Bugun: {todayUsed}/{effective}. {current === null ? "Hozir standart limit qo'llanmoqda." : `Shaxsiy limit: ${current}.`} Bo&apos;sh qoldirsangiz — standart limit (Sozlamalar).</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="label" htmlFor="sl">Tekshiruvlar / kun<input id="sl" type="number" min={0} max={1000} className="input w-28 text-center" value={v} placeholder="standart" onChange={(e) => setV(e.target.value)} /></label>
+        <button className="btn btn-sm">Saqlash</button>
+        {current !== null && <button type="button" className="btn-ghost btn-sm" onClick={() => { setV(""); save(null); }}>Standartga qaytarish</button>}
+      </div>
+      {msg && <p className="text-sm text-ink-muted" role="status">{msg}</p>}
+    </form>
   );
 }
 
@@ -167,13 +195,14 @@ export default function TeacherPage() {
           <div className="card overflow-x-auto">
             {stats.students.length ? (
               <table className="tbl">
-                <thead><tr><th>O&apos;quvchi</th><th>Login</th><th>Ishlar</th><th>Oxirgi natija</th><th>O&apos;rtacha</th><th>Oxirgi faollik</th></tr></thead>
+                <thead><tr><th>O&apos;quvchi</th><th>Login</th><th>Ishlar</th><th>Oxirgi natija</th><th>O&apos;rtacha</th><th>Bugun</th><th>Oxirgi faollik</th></tr></thead>
                 <tbody>
                   {stats.students.map((s) => (
                     <tr key={s.id} className="cursor-pointer hover:bg-beige" tabIndex={0} onClick={() => setStudent(s.id)} onKeyDown={(e) => { if (e.key === "Enter") setStudent(s.id); }}>
                       <td><b>{s.name}</b></td><td>{s.login}</td><td>{s.count}</td>
                       <td>{s.last ? `${fmt(s.last.total)} / ${s.last.max}` : "—"}</td>
                       <td>{s.avgPercent != null ? fmt(s.avgPercent) + "%" : "—"}</td>
+                      <td className="whitespace-nowrap" title="Bugungi tekshiruvlar / kunlik limit">{s.today.checks}/{s.effectiveLimit}{s.dailyLimit !== null && <span className="text-gold-ink"> ★</span>}</td>
                       <td className="text-xs">{s.last ? dt(s.last.createdAt) : "—"}</td>
                     </tr>
                   ))}
@@ -190,6 +219,7 @@ export default function TeacherPage() {
           <h2 className="text-2xl">{st?.name}</h2>
           {stRows.length >= 2 && <div className="card"><h3 className="mb-2 text-lg">Natijalarning vaqt bo&apos;yicha o&apos;zgarishi (%)</h3><TrendChart rows={stRows} /></div>}
           <div className="card"><WorksTable rows={stRows} /></div>
+          {student && st && <StudentLimit key={"l" + student} id={student} current={st.dailyLimit} effective={st.effectiveLimit} todayUsed={st.today.checks} onSaved={load} />}
           {student && <ResetPassword key={student} id={student} name={st?.name || "o'quvchi"} />}
         </>
       )}

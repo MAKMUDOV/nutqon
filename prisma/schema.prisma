@@ -17,6 +17,7 @@ model User {
   passwordHash String
   role         String       @default("STUDENT") // STUDENT | TEACHER
   createdAt    DateTime     @default(now())
+  dailyLimit   Int?         // shaxsiy kunlik tekshiruv limiti (null — standart)
   submissions  Submission[]
 }
 
@@ -45,4 +46,15 @@ model Submission {
 model Setting {
   id   Int    @id @default(1)
   json String // so'zlar soni chegaralari
+}
+
+// Kunlik foydalanish hisobi (O'zbekiston vaqti bo'yicha kun)
+model Usage {
+  userId String
+  day    String // YYYY-MM-DD
+  checks Int    @default(0)
+  ocr    Int    @default(0)
+
+  @@id([userId, day])
+  @@index([day])
 }

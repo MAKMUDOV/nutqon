@@ -46,7 +46,7 @@ async function shrink(file: File): Promise<{ mime: "image/jpeg"; data: string }>
   }
 }
 
-function PhotoReader({ hasText, onText }: { hasText: boolean; onText: (t: string) => void }) {
+function PhotoReader({ hasText, onText, left }: { hasText: boolean; onText: (t: string) => void; left: number | null }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const read = async (files: FileList | null) => {
@@ -73,13 +73,13 @@ function PhotoReader({ hasText, onText }: { hasText: boolean; onText: (t: string
         <input type="file" accept="image/jpeg,image/png,image/webp,image/*" multiple className="sr-only" disabled={busy}
           onChange={(e) => { read(e.target.files); e.target.value = ""; }} />
       </label>
-      <p className="text-xs text-ink-muted">1–4 ta sahifa rasmini tartib bilan tanlang. AI matnni xatolari bilan, tuzatmasdan ko&apos;chiradi.</p>
+      <p className="text-xs text-ink-muted">1–4 ta sahifa rasmini tartib bilan tanlang. AI matnni xatolari bilan, tuzatmasdan ko&apos;chiradi.{left !== null && <> Bugun yana <b>{left}</b> marta rasmdan o&apos;qish mumkin.</>}</p>
       {msg && <div className={msg.ok ? "notice-ok" : "notice-err"} role="status">{msg.text}</div>}
     </div>
   );
 }
 
-function PartEditor({ k, d, onChange }: { k: PartType; d: Draft; onChange: (d: Draft) => void }) {
+function PartEditor({ k, d, onChange, ocrLeft, onOcrDone }: { k: PartType; d: Draft; onChange: (d: Draft) => void; ocrLeft: number | null; onOcrDone: () => void }) {
   const T = TYPES[k];
   const n = countWords(d.text);
   return (
@@ -107,7 +107,7 @@ function PartEditor({ k, d, onChange }: { k: PartType; d: Draft; onChange: (d: D
         )}
       </div>
       {!d.topic && <p className="text-sm text-ink-muted">Mavzu kiritilmasa, matnning mavzuga mosligini ishonchli baholab bo&apos;lmaydi.</p>}
-      <PhotoReader hasText={!!d.text.trim()} onText={(t) => onChange({ ...d, text: t, startedAt: d.startedAt ?? Date.now() })} />
+      <PhotoReader hasText={!!d.text.trim()} left={ocrLeft} onText={(t) => { onChange({ ...d, text: t, startedAt: d.startedAt ?? Date.now() }); onOcrDone(); }} />
       <label className="label" htmlFor={`ta-${k}`}>Arabcha matn
         <textarea id={`ta-${k}`} dir="rtl" lang="ar" spellCheck={false} className="input min-h-[260px] resize-y text-right font-ar text-[21px] leading-[2]"
           value={d.text} placeholder={k === "letter" ? "اكتب رسالتك هنا…" : "اكتب إنشاءك هنا…"}
@@ -128,7 +128,7 @@ function PartEditor({ k, d, onChange }: { k: PartType; d: Draft; onChange: (d: D
 
 export default function CheckForm({ mode }: { mode: Mode }) {
   const router = useRouter();
-  const { user, loading } = useMe();
+  const { user, loading, usage, refresh } = useMe();
   const [drafts, setDrafts] = useState<Record<PartType, Draft> | null>(null);
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
@@ -187,7 +187,14 @@ export default function CheckForm({ mode }: { mode: Mode }) {
           <input id="sname" className="input" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
         </label>
       </div>
-      {parts.map((k) => <PartEditor key={k} k={k} d={drafts[k]} onChange={(d) => setDrafts((prev) => (prev ? { ...prev, [k]: d } : prev))} />)}
+      {usage && (
+        <div className={usage.checks.left > 0 ? "notice" : "notice-err"} role="status">
+          {usage.checks.left > 0
+            ? <>Bugun yana <b>{usage.checks.left}</b> ta tekshiruv qilishingiz mumkin (kunlik limit: {usage.checks.limit}).</>
+            : <>Bugungi tekshiruvlar limiti tugadi ({usage.checks.used}/{usage.checks.limit}). Ertaga yana tekshirishingiz mumkin.</>}
+        </div>
+      )}
+      {parts.map((k) => <PartEditor key={k} k={k} d={drafts[k]} ocrLeft={usage ? usage.ocr.left : null} onOcrDone={refresh} onChange={(d) => setDrafts((prev) => (prev ? { ...prev, [k]: d } : prev))} />)}
       {err && <div className="notice-err" role="alert">{err}</div>}
       <div className="flex flex-wrap gap-3">
         <button type="button" className="btn" onClick={submit}>Tekshirish</button>
