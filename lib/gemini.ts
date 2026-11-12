@@ -6,6 +6,8 @@ type Opts = {
   model: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  /** Gemini "o'ylash" darajasi: minimal | low | medium | high. Bo'sh — model standarti (sekin bo'lishi mumkin). */
+  thinkingLevel?: string;
   retryDelayMs?: number;
 };
 
@@ -30,29 +32,32 @@ export function createGeminiClient(o: Opts): AIClient {
       "Always answer by calling the submit_assessment tool exactly once.",
       "Answer with ONLY one JSON object (no markdown, no extra text) that matches this JSON Schema exactly:\n" + JSON.stringify(schema)
     );
-    const body = JSON.stringify({
+    let thinking = o.thinkingLevel || "";
+    const makeBody = () => JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: userMessage }] }],
-      generationConfig: { maxOutputTokens: 32000, responseMimeType: "application/json" } // yangi Gemini modellari temperature qabul qilmaydi
+      // yangi Gemini modellari temperature qabul qilmaydi; o'ylash darajasi tezlikni belgilaydi
+      generationConfig: { maxOutputTokens: 16000, responseMimeType: "application/json", ...(thinking ? { thinkingConfig: { thinkingLevel: thinking } } : {}) }
     });
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(o.model)}:generateContent`;
     let lastErr: AIRequestError | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt) await new Promise((r) => setTimeout(r, o.retryDelayMs ?? 2000));
       const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), o.timeoutMs ?? 150_000);
+      const timer = setTimeout(() => ctl.abort(), o.timeoutMs ?? 120_000);
       let res: Response;
       try {
-        res = await doFetch(url, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": o.apiKey }, body, signal: ctl.signal });
+        res = await doFetch(url, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": o.apiKey }, body: makeBody(), signal: ctl.signal });
       } catch (e) {
         clearTimeout(timer);
-        lastErr = new AIRequestError("AI xizmatiga ulanib bo'lmadi yoki javob juda kechikdi. Qayta urinib ko'ring.", 504, String(e));
-        continue;
+        // Kechikishda qayta urinmaymiz (vaqt chegarasidan oshib ketmaslik uchun) — zaxira model ishga tushadi.
+        throw new AIRequestError("AI juda uzoq javob bermadi. Qayta urinib ko'ring.", 504, String(e));
       }
       clearTimeout(timer);
       if (!res.ok) {
         const t = await res.text().catch(() => "");
         console.error(`[nutqon] Gemini API HTTP ${res.status}: ${t.slice(0, 800)}`);
+        if (res.status === 400 && thinking && /thinking/i.test(t)) { thinking = ""; attempt--; continue; } // model bu sozlamani qabul qilmaydi
         if (res.status === 429) throw new AIRequestError("Gemini'ning bepul limiti tugadi (daqiqalik yoki kunlik). Birozdan keyin yoki ertaga qayta urinib ko'ring.", 429, t.slice(0, 300));
         if (res.status >= 500) { lastErr = new AIRequestError("Gemini xizmati vaqtincha ishlamayapti. Qayta urinib ko'ring.", 503, `HTTP ${res.status}`); continue; }
         if (/API_KEY_INVALID|API key not valid/i.test(t) || res.status === 401 || res.status === 403) throw new AIRequestError("Gemini API kaliti noto'g'ri yoki ruxsat yo'q. GEMINI_API_KEY ni tekshiring.", 502, t.slice(0, 300));

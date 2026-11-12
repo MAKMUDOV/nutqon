@@ -17,7 +17,12 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
     throw new Error("Serverga ulanib bo'lmadi. Internet aloqasini tekshiring.");
   }
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error((data && data.error) || `Xato (${res.status})`);
+  if (!res.ok) {
+    if (data && data.error) throw new Error(data.error);
+    if (res.status === 504 || res.status === 502) throw new Error("Server javobi juda kechikdi. Bir daqiqadan keyin qayta urinib ko'ring.");
+    if (res.status === 413) throw new Error("Yuborilgan ma'lumot juda katta (rasm hajmini kichraytiring).");
+    throw new Error(`Xato (${res.status}). Qayta urinib ko'ring.`);
+  }
   return data as T;
 }
 

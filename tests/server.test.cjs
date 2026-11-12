@@ -339,6 +339,16 @@ async function body(r) { return r.json(); }
     assert(b.systemInstruction.parts[0].text.includes('"rubricScores"'), "sxema promptda yo'q");
     assert(!b.systemInstruction.parts[0].text.includes("submit_assessment tool"), "tool ko'rsatmasi qolib ketgan");
   });
+  await t("Gemini: o'ylash darajasi yuboriladi; qabul qilinmasa usiz qayta so'raladi", async () => {
+    const bodies = [];
+    const c = createGeminiClient({ apiKey: "k", model: "m", thinkingLevel: "low", fetchImpl: async (u, init) => { const b = JSON.parse(init.body); bodies.push(b); return b.generationConfig.thinkingConfig ? new Response(JSON.stringify({ error: { message: "thinking_level not supported" } }), { status: 400 }) : gResp('{"ok":1}'); } });
+    eq(await c("essay", "x"), { ok: 1 }); eq(bodies.length, 2); eq(bodies[0].generationConfig.thinkingConfig.thinkingLevel, "low");
+  });
+  await t("Gemini: kechiksa qayta urinmay 504 qaytaradi (zaxira uchun)", async () => {
+    let n = 0;
+    const c = createGeminiClient({ apiKey: "k", model: "m", timeoutMs: 20, fetchImpl: (u, init) => { n++; return new Promise((_, rej) => init.signal.addEventListener("abort", () => rej(new Error("abort")))); } });
+    let e; try { await c("essay", "x"); } catch (x) { e = x; } eq(e && e.status, 504); eq(n, 1);
+  });
   await t("Gemini: ```json o'ramidagi javob ham o'qiladi", () => { eq(extractJson('Natija:\n```json\n{"b":2}\n```'), { b: 2 }); });
   await t("Gemini: 429 -> limit tugadi xabari", async () => {
     const c = createGeminiClient({ apiKey: "k", model: "m", fetchImpl: async () => new Response("{}", { status: 429 }) });
