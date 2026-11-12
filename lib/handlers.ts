@@ -10,6 +10,7 @@ import { AIRequestError, type AIClient } from "./claude";
 import { SESSION_COOKIE, clearCookie, createSessionToken, getCookie, hashPassword, readSessionToken, sessionCookie, verifyPassword } from "./auth";
 import { RateLimiter } from "./rateLimit";
 import type { OcrClient, OcrImage } from "./ocr";
+import { modelOf } from "./fallback";
 import { buildStats } from "./stats";
 import type { Repo } from "./repo";
 import type { PartResult, PublicUser, Submission, TeacherReview, User } from "./types";
@@ -154,9 +155,23 @@ export const check = wrap(async (req, d) => {
     return fail(429, `Tekshiruvlar limiti tugadi. ${Math.ceil(d.checkLimiter.retryAfterSec("check:" + user.id) / 60)} daqiqadan keyin qayta urinib ko'ring.`);
   }
   const settings = normSettings(await d.repo.getSettings());
+  // Izchillik: shu o'quvchi oxirgi 30 kunda aynan shu matnni (shu mavzu bilan) tekshirgan bo'lsa, AI qayta chaqirilmaydi.
+  const recent = await d.repo.listSubmissions({ userId: user.id, limit: 50 });
+  const since = Date.now() - 30 * 86400_000;
+  const findCached = (k: PartType): PartResult | undefined => {
+    const inp = body[k]!;
+    for (const s of recent) {
+      const p = s.parts[k];
+      if (p && Date.parse(s.createdAt) > since && p.text === inp.text.trim() && p.topic === inp.topic.trim() && (k !== "letter" || p.kind === inp.kind)) return p;
+    }
+    return undefined;
+  };
   let results: PartResult[];
   try {
-    results = await Promise.all(types.map((k) => assessPart(k, body[k]!, settings, d)));
+    results = await Promise.all(types.map((k) => {
+      const c = findCached(k);
+      return c ? Promise.resolve(rescore(k, c, body[k]!, settings)) : assessPart(k, body[k]!, settings, d);
+    }));
   } catch (e) {
     if (e instanceof AIRequestError) return fail(e.status, e.userMessage);
     if (e instanceof AIFormatError) return fail(502, "AI javobi noto'g'ri formatda keldi, shuning uchun natija ko'rsatilmadi. Qayta urinib ko'ring.");
@@ -174,18 +189,26 @@ export const check = wrap(async (req, d) => {
     createdAt: now,
     parts,
     total: o.total, max: o.max, percent: o.percent,
-    model: d.model,
+    model: [...new Set(results.map((r) => r.model || d.model))].join(", "),
     teacherReview: null
   };
   await d.repo.createSubmission(sub);
   return json({ submission: sub }, 201);
 });
 
+/** Avvalgi AI tahlilini qayta ishlatadi; so'zlar soni bali joriy sozlama bilan qayta hisoblanadi. */
+function rescore(k: PartType, prev: PartResult, input: z.infer<typeof partInput>, settings: Settings): PartResult {
+  const T = TYPES[k];
+  const scores: Scores = { ...prev.scores, words: wordScore(prev.wordCount, T.target, T.per, settings) };
+  return { ...prev, minutes: input.minutes ?? null, scores, total: sumScores(scores, k), wordSettings: settings, reused: true };
+}
+
 async function assessPart(k: PartType, input: z.infer<typeof partInput>, settings: Settings, d: Deps): Promise<PartResult> {
   const text = input.text.trim();
   const wc = countWords(text);
   const raw = await d.ai(k, buildUserMessage(k, { topic: input.topic, letterKind: input.kind, wordCount: wc, text }));
   const ai = validateAI(raw, text, k);
+  const usedModel = modelOf(raw, d.model);
   const T = TYPES[k];
   const scores: Scores = {
     structure: ai.rubric.structure.score,
@@ -197,7 +220,7 @@ async function assessPart(k: PartType, input: z.infer<typeof partInput>, setting
   return {
     type: k, topic: input.topic.trim(), kind: k === "letter" ? input.kind : null,
     text, wordCount: wc, target: T.target, minutes: input.minutes ?? null,
-    ai, scores, total: sumScores(scores, k), max: T.max, wordSettings: settings
+    ai, scores, total: sumScores(scores, k), max: T.max, wordSettings: settings, model: usedModel
   };
 }
 

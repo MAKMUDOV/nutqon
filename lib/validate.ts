@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AI_CRITERIA, TYPES, clamp, locate, round05, type PartType } from "./scoring";
+import { AI_CRITERIA, TYPES, applyCorrections, clamp, hasStrayLatin, locate, onlyDiacriticsDiffer, round05, type PartType } from "./scoring";
 import { CATEGORIES } from "./prompt";
 import type { FoundError, ValidatedAI } from "./types";
 
@@ -58,6 +58,10 @@ export function validateAI(raw: unknown, text: string, type: PartType): Validate
   for (const e of d.errors.slice(0, 40)) {
     const pe = errorSchema.safeParse(e);
     if (!pe.success || !pe.data.fragment || !pe.data.correction) { dropped++; continue; }
+    // Faqat harakat/tanvin qo'shilgan "tuzatish" xato emas (harakatsiz yozuv to'g'ri); bir xil matn ham.
+    if (onlyDiacriticsDiffer(pe.data.fragment, pe.data.correction)) { dropped++; continue; }
+    // Tuzatishda arab matni orasiga lotin harflari kirib qolsa — AI nuqsoni, ishonchsiz.
+    if (hasStrayLatin(pe.data.correction, pe.data.fragment)) { dropped++; continue; }
     const pos = locate(text, pe.data.fragment, taken);
     if (!pos) { dropped++; continue; } // matnda yo'q xato — o'ylab topilgan, olib tashlanadi
     taken.push(pos);
@@ -70,8 +74,9 @@ export function validateAI(raw: unknown, text: string, type: PartType): Validate
     weaknesses: d.weaknesses,
     errors,
     droppedErrors: dropped,
-    correctedText: d.correctedText,
-    improvedText: d.improvedText,
+    // "Faqat xatolar tuzatilgan" matn asl matndan dasturda yasaladi: belgilangan xatolarga to'liq mos, ortiqcha o'zgarishsiz.
+    correctedText: applyCorrections(text, errors),
+    improvedText: hasStrayLatin(d.improvedText, text) ? "" : d.improvedText,
     recommendations: d.recommendations,
     assessmentNotes: d.assessmentNotes
   };

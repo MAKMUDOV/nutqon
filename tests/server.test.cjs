@@ -209,6 +209,79 @@ async function body(r) { return r.json(); }
     eq(p.ai.errors[0].correction, "ولها أهمية");
   });
 
+  console.log("Tekshiruv sifati (soxta xatolarni filtrlash)");
+  const REAL = "يذهب الطالب الى المدرسة يوميا ويدرس ايضا اللغة العربية مع اصدقائه في الفصل";
+  const rub = { score: 3, reason: "a" };
+  const base = { rubricScores: { structure: rub, grammar: rub, content: rub, cohesion: rub }, correctedText: "AI matni", improvedText: "نص محسن" };
+  await t("faqat tanvin/harakat qo'shilgan 'xato' olib tashlanadi, hamza xatosi qoladi", () => {
+    const r = validateAI({ ...base, errors: [
+      { fragment: "يوميا", correction: "يوميًا", type: "spelling", category: "Boshqa imlo", severity: "low", explanation: "tanvin" },
+      { fragment: "ايضا", correction: "أيضًا", type: "spelling", category: "Hamza va alif imlosi", severity: "low", explanation: "hamza" },
+      { fragment: "الى", correction: "إلى", type: "spelling", category: "Hamza va alif imlosi", severity: "low", explanation: "hamza" }
+    ] }, REAL, "essay");
+    eq(r.errors.map((e) => e.fragment), ["الى", "ايضا"]); eq(r.droppedErrors, 1);
+  });
+  await t("lotin harfi aralashgan tuzatish olib tashlanadi", () => {
+    const r = validateAI({ ...base, errors: [{ fragment: "اصدقائه", correction: "أصدقائni", type: "spelling", category: "Boshqa", severity: "low", explanation: "x" }] }, REAL, "essay");
+    eq(r.errors.length, 0);
+  });
+  await t("tuzatilgan matn asl matndan dasturda yasaladi (AI matni emas)", () => {
+    const r = validateAI({ ...base, errors: [
+      { fragment: "الى", correction: "إلى", type: "spelling", category: "Hamza va alif imlosi", severity: "low", explanation: "h" },
+      { fragment: "اصدقائه", correction: "أصدقائه", type: "spelling", category: "Hamza va alif imlosi", severity: "low", explanation: "h" }
+    ] }, REAL, "essay");
+    eq(r.correctedText, "يذهب الطالب إلى المدرسة يوميا ويدرس ايضا اللغة العربية مع أصدقائه في الفصل");
+  });
+  await t("namunaviy matnga lotin harfi aralashsa, u ko'rsatilmaydi", () => {
+    const r = validateAI({ ...base, improvedText: "النشاط البدni المنتظم", errors: [] }, REAL, "essay");
+    eq(r.improvedText, "");
+  });
+  await t("xatboshilar tuzatilgan matnda saqlanadi", () => {
+    const txt = "الرياضة مفيدة\n\nوله أهمية كبيرة";
+    const r = validateAI({ ...base, errors: [{ fragment: "وله", correction: "ولها", type: "grammar", category: "Muzakkar/muannas", severity: "high", explanation: "x" }] }, txt, "essay");
+    eq(r.correctedText, "الرياضة مفيدة\n\nولها أهمية كبيرة");
+  });
+
+  await t("bir xil matn qayta tekshirilsa, AI chaqirilmaydi va ball bir xil", async () => {
+    const ai = fakeAI(); const d = deps(ai); const ck = await signup(d);
+    const b = { mode: "essay", essay: { topic: "Sport", text: ESSAY_250 } };
+    const s1 = (await (await H.check(req("POST", "/api/check", b, ck), d)).json()).submission;
+    const s2 = (await (await H.check(req("POST", "/api/check", b, ck), d)).json()).submission;
+    eq(ai.calls.length, 1); eq(s2.total, s1.total); eq(s2.parts.essay.reused, true);
+    await H.check(req("POST", "/api/check", { mode: "essay", essay: { topic: "Boshqa", text: ESSAY_250 } }, ck), d);
+    eq(ai.calls.length, 2);
+  });
+  await t("boshqa o'quvchining matni qayta ishlatilmaydi", async () => {
+    const ai = fakeAI(); const d = deps(ai); const a = await signup(d, "ali"); const v = await signup(d, "vali");
+    const b = { mode: "essay", essay: { text: ESSAY_250 } };
+    await H.check(req("POST", "/api/check", b, a), d); await H.check(req("POST", "/api/check", b, v), d);
+    eq(ai.calls.length, 2);
+  });
+
+  console.log("Zaxira model");
+  const { withFallback, modelOf } = require(B + "/fallback.js");
+  await t("asosiy model limiti tugasa zaxira ishlaydi va model yoziladi", async () => {
+    const primary = async () => { throw new AIRequestError("limit", 429); };
+    const backup = fakeAI();
+    const ai = withFallback(primary, "asosiy", backup, "zaxira");
+    const d = deps(ai); const ck = await signup(d);
+    const r = await H.check(req("POST", "/api/check", { mode: "essay", essay: { text: ESSAY_250 } }, ck), d);
+    eq(r.status, 201); const s = (await r.json()).submission;
+    eq(s.parts.essay.model, "zaxira"); eq(s.model, "zaxira");
+  });
+  await t("asosiy model ishlasa zaxira chaqirilmaydi", async () => {
+    let backupCalled = false;
+    const ai = withFallback(fakeAI(), "asosiy", async () => { backupCalled = true; return {}; }, "zaxira");
+    const raw = await ai("essay", buildUserMessage("essay", { topic: "", wordCount: 3, text: ESSAY_250 }));
+    eq(modelOf(raw, "?"), "asosiy"); eq(backupCalled, false);
+    assert(!JSON.stringify(raw).includes("__nqModel"), "belgi JSON'ga tushmasligi kerak");
+  });
+  await t("400 kabi xatoda zaxiraga o'tilmaydi", async () => {
+    let backupCalled = false;
+    const ai = withFallback(async () => { throw new AIRequestError("bad", 502); }, "a", async () => { backupCalled = true; return {}; }, "b");
+    let e; try { await ai("essay", "x"); } catch (x) { e = x; } assert(e && !backupCalled);
+  });
+
   console.log("Claude API mijoz (soxta fetch)");
   const okResp = (input, stop = "tool_use") => new Response(JSON.stringify({ stop_reason: stop, content: [{ type: "tool_use", name: "submit_assessment", input }] }), { status: 200 });
   await t("kalit backendda yuboriladi, tool_choice majburiy, temperature 0", async () => {

@@ -158,3 +158,32 @@ export function overall(parts: Partial<Record<PartType, { total: number; max: nu
   total = round05(total);
   return { total, max, percent: pct(total, max), percentOf75: pct(total, GRAND_MAX) };
 }
+
+/** Harakat, tanvin, shadda va tatvilni olib tashlaydi (taqqoslash uchun). */
+export function stripTashkeel(s: string): string {
+  return s.replace(TASHKEEL_G, "");
+}
+
+/** Faqat harakat/tanvin farqi bo'lgan "tuzatish" — harakatsiz yozuvda xato emas. */
+export function onlyDiacriticsDiffer(a: string, b: string): boolean {
+  const n = (x: string) => stripTashkeel(x).replace(/\s+/g, " ").trim();
+  return n(a) === n(b);
+}
+
+/** Matnda arab yozuvi orasiga lotin harflari kirib qolganmi (AI nuqsoni). */
+export function hasStrayLatin(s: string, original = ""): boolean {
+  if (/[A-Za-z]/.test(original)) return false;
+  return /[A-Za-z]/.test(s);
+}
+
+/** Asl matnga faqat topilgan xatolar tuzatishlarini qo'llaydi — boshqa hech narsa o'zgarmaydi. */
+export function applyCorrections(text: string, errors: { start: number; end: number; correction: string }[]): string {
+  let out = "";
+  let pos = 0;
+  for (const e of [...errors].sort((a, b) => a.start - b.start)) {
+    if (e.start < pos) continue;
+    out += text.slice(pos, e.start) + e.correction;
+    pos = e.end;
+  }
+  return out + text.slice(pos);
+}

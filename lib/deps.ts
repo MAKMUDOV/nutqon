@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { createClaudeClient } from "./claude";
 import { createGeminiClient } from "./gemini";
+import { withFallback } from "./fallback";
 import { createClaudeOcr, createGeminiOcr } from "./ocr";
 import { RateLimiter } from "./rateLimit";
 import { PrismaRepo } from "./repo.prisma";
@@ -20,10 +21,14 @@ export function getDeps(): Deps {
   const model = provider === "gemini"
     ? process.env.GEMINI_MODEL || "gemini-3.8-flash"
     : process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+  // Asosiy model limiti tugasa yoki ishlamasa ishlatiladigan zaxira (Gemini). "off" — o'chirish.
+  const backupModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash-lite";
   g.__nqDeps = {
     repo: new PrismaRepo(),
     ai: provider === "gemini"
-      ? createGeminiClient({ apiKey: process.env.GEMINI_API_KEY, model })
+      ? withFallback(
+          createGeminiClient({ apiKey: process.env.GEMINI_API_KEY, model }), model,
+          backupModel === "off" ? null : createGeminiClient({ apiKey: process.env.GEMINI_API_KEY, model: backupModel }), backupModel)
       : createClaudeClient({ apiKey: process.env.ANTHROPIC_API_KEY, model }),
     ocr: provider === "gemini"
       ? createGeminiOcr({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_OCR_MODEL || model, fallbackModel: process.env.GEMINI_OCR_FALLBACK || "gemini-3.5-flash-lite", timeoutMs: 110_000 })

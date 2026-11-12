@@ -29,6 +29,7 @@
     "../lib/handlers.ts",
     "../lib/types.ts",
     "../lib/gemini.ts",
-    "../lib/ocr.ts"
+    "../lib/ocr.ts",
+    "../lib/fallback.ts"
   ]
 }

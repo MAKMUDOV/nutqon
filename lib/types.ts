@@ -61,6 +61,10 @@ export type PartResult = {
   max: number;
   /** Shu tekshiruvda so'zlar soni uchun qo'llangan chegaralar */
   wordSettings?: Settings;
+  /** Shu qismni baholagan model */
+  model?: string;
+  /** Aynan shu matn avval tekshirilgan — AI tahlili qayta ishlatildi */
+  reused?: boolean;
 };
 
 export type TeacherReview = {
